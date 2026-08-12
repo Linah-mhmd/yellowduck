@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="page-card">
+    <div class="section-header">
+        <h2>Notifications</h2>
+        <p>Stay up to date with funding alerts, investment updates, and project actions.</p>
+    </div>
+    <div class="notification-list">
+        {% for notif in notifications %}
+        <div class="notification-card">
+            <div>
+                <p class="meta"><strong>{% if not notif.read %}New{% else %}Read{% endif %}</strong> — {{ notif.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                <p>{% if not notif.read %}🔔 <strong>{{ notif.message }}</strong>{% else %}✅ {{ notif.message }}{% endif %}</p>
+            </div>
+            <div class="notification-actions">
+                {% if notif.type == 'investment_request' and notif.investment_id %}
+                    <a href="{{ url_for('investment_detail', investment_id=notif.investment_id) }}" class="btn btn-secondary">View Investment</a>
+                {% elif notif.project_id %}
+                    <a href="{{ url_for('feedback', project_id=notif.project_id) }}" class="btn btn-secondary">View Feedback</a>
+                {% endif %}
+                <a href="{{ url_for('read_notification', notif_id=notif._id) }}" class="btn btn-primary">Mark as read</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

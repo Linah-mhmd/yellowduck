@@ -1,0 +1,104 @@
+[
+  {
+    "_id": "68cadca6ae2b067e0b928b30",
+    "title": "Farm to Table",
+    "description": "E-commerce marketplace connecting farmers directly with urban consumers.",
+    "sector": "agriculture",
+    "tags": [
+      "commerce",
+      "agriculture"
+    ]
+  },
+  {
+    "_id": "68cadcc1ae2b067e0b928b32",
+    "title": "Freelancer Hub",
+    "description": "AI-powered freelancing platform with smart matching and escrow payments. ",
+    "sector": "technology",
+    "tags": [
+      "commerce",
+      "finance",
+      "technology"
+    ]
+  },
+  {
+    "_id": "68cadcedae2b067e0b928b34",
+    "title": "Food Waste Tracker",
+    "description": "Smart inventory tracking system to help restaurants minimize food waste.",
+    "sector": "technology",
+    "tags": [
+      "commerce",
+      "technology"
+    ]
+  },
+  {
+    "_id": "68cadd07ae2b067e0b928b36",
+    "title": "Smart Recycling Bins",
+    "description": "AI-powered recycling bins with sensors to improve waste management efficiency.",
+    "sector": "industry",
+    "tags": [
+      "commerce",
+      "industry",
+      "technology"
+    ]
+  },
+  {
+    "_id": "68d5b6b5cf0f957c8fbcdbf2",
+    "title": "Mental Health App",
+    "description": "Mobile app offering AI-driven therapy chatbots and affordable online counseling for young adults and working professionals.",
+    "sector": "technology",
+    "tags": [
+      "technology",
+      "healthcare"
+    ]
+  },
+  {
+    "_id": "68d5b6cfcf0f957c8fbcdbf4",
+    "title": "Eco Packaging",
+    "description": "Biodegradable and compostable packaging products for restaurants, cafes, and small food businesses.",
+    "sector": "agriculture",
+    "tags": [
+      "industry",
+      "agriculture"
+    ]
+  },
+  {
+    "_id": "68d5b6e6cf0f957c8fbcdbf6",
+    "title": "Retail Digitization",
+    "description": "POS, inventory management, and online storefront solution to digitize small and medium retail shops.",
+    "sector": "technology",
+    "tags": [
+      "commerce",
+      "technology"
+    ]
+  },
+  {
+    "_id": "68d5b700cf0f957c8fbcdbf8",
+    "title": "Online Mental Health Support",
+    "description": "Teletherapy platform with AI chatbot for initial screening of young adults, students, and working professionals.",
+    "sector": "healthcare",
+    "tags": [
+      "education",
+      "technology",
+      "healthcare"
+    ]
+  },
+  {
+    "_id": "68d5b713cf0f957c8fbcdbfa",
+    "title": "Art Marketplace",
+    "description": "E-commerce platform with NFT integration for local artists to sell art online to collectors globally.",
+    "sector": "technology",
+    "tags": [
+      "commerce",
+      "technology"
+    ]
+  },
+  {
+    "_id": "69693748234ace960e04a449",
+    "title": "المزرعه السعيده",
+    "description": "حمايه المحاصيل وزياده المحصول",
+    "sector": "agriculture",
+    "tags": [
+      "agriculture"
+    ]
+  }
+]

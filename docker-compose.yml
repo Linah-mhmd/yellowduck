@@ -1,0 +1,26 @@
+services:
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build: .
+    ports:
+      - "5001:5001"
+    environment:
+      MONGO_URI: mongodb://mongodb:27017
+      MONGO_DB: graduation
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      FLASK_DEBUG: "false"
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      - mongodb
+    volumes:
+      - ./static/uploads:/app/static/uploads
+      - ./uploads:/app/uploads
+
+volumes:
+  mongo_data:

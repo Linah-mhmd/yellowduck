@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Yellow Duck{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<nav class="navbar">
+    <div class="navbar-inner">
+        <div class="logo">Yellow <span>Duck</span></div>
+        <button class="mobile-menu-toggle" type="button" onclick="toggleMobileMenu()">☰</button>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/projects">Projects</a></li>
+            {% if user and user.role|lower == 'founder' %}
+            <li class="dashboard-dropdown">
+                <a href="#" onclick="toggleDashboardMenu(event)">Dashboard</a>
+                <ul class="dashboard-menu" id="dashboardMenu">
+                    <li><a href="/create-project">Create Project</a></li>
+                    <li><a href="/control_projects">Control Project</a></li>
+                    <li><a href="/funding-optimizer">Funding Optimizer</a></li>
+                    <li><a href="/cash_flow_status">Cash Flow</a></li>
+                </ul>
+            </li>
+            {% endif %}
+            {% if user %}
+            <li class="nav-item">
+                <a class="nav-link notif-link" href="{{ url_for('notifications') }}">
+                    Notifications
+                    <span class="notif-count">{{ notif_count }}</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+        <div class="nav-actions">
+            <div class="account-dropdown" onclick="toggleDropdown()">
+                <div class="account-icon">{{ user.name if user else 'Visitor' }}</div>
+                <ul class="dropdown-menu" id="dropdownMenu">
+                    <li><a href="#" onclick="closeDropdown()">Close</a></li>
+                    {% if user %}
+                        <li><a href="/create-profile">Create Profile</a></li>
+                        <li><a href="/update-profile">Update Profile</a></li>
+                        <li><a href="/logout">Logout</a></li>
+                    {% else %}
+                        <li><a href="/login">Login</a></li>
+                        <li><a href="/signup">Sign Up</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Page content -->
+<div class="content">
+    {% block content %}{% endblock %}
+</div>
+<style>
+.notif-link {
+    position: relative;
+    font-weight: bold;
+}
+
+.notif-count {
+    background: #ffb700;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin-left: 4px;
+}
+</style>
+
+<script>
+function toggleDropdown() {
+    document.getElementById('dropdownMenu').classList.toggle('show');
+}
+function closeDropdown() {
+    document.getElementById('dropdownMenu').classList.remove('show');
+}
+function toggleDashboardMenu(event) {
+    event.preventDefault();
+    document.getElementById('dashboardMenu').classList.toggle('show');
+}
+function toggleMobileMenu() {
+    const navLinks = document.querySelector('.nav-links');
+    if (navLinks) {
+        navLinks.classList.toggle('show');
+    }
+}
+</script>
+
+</body>
+</html>

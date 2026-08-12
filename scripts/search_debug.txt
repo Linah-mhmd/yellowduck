@@ -1,0 +1,43 @@
+
+=== technology ===
+count: 9
+  - Farm to Table [agriculture]
+  - Freelancer Hub [technology]
+  - Food Waste Tracker [technology]
+  - Smart Recycling Bins [industry]
+  - Mental Health App [technology]
+
+=== زراعه ===
+count: 4
+  - Farm to Table [agriculture]
+  - Food Waste Tracker [technology]
+  - Eco Packaging [agriculture]
+  - المزرعه السعيده [agriculture]
+
+=== صناعه ===
+count: 3
+  - Food Waste Tracker [technology]
+  - Smart Recycling Bins [industry]
+  - Eco Packaging [agriculture]
+
+=== agriculture ===
+count: 4
+  - Farm to Table [agriculture]
+  - Food Waste Tracker [technology]
+  - Eco Packaging [agriculture]
+  - المزرعه السعيده [agriculture]
+
+=== tech ===
+count: 9
+  - Farm to Table [agriculture]
+  - Freelancer Hub [technology]
+  - Food Waste Tracker [technology]
+  - Smart Recycling Bins [industry]
+  - Mental Health App [technology]
+
+=== farm ===
+count: 4
+  - Farm to Table [agriculture]
+  - Food Waste Tracker [technology]
+  - Eco Packaging [agriculture]
+  - المزرعه السعيده [agriculture]

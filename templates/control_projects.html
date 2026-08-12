@@ -1,0 +1,112 @@
+<!--control projects-->
+{% extends "base.html" %}
+
+{% block title %}Control Projects - Yellow Duck{% endblock %}
+
+{% block content %}
+<h1 class="page-title">My Projects</h1>
+
+<div class="projects-container">
+    {% if projects %}
+        {% for project in projects %}
+            <div class="project-card" data-id="{{ project._id }}">
+                
+                {% set has_investors = project._id in investor_projects %}
+
+                <!-- Editable Fields -->
+                <label>Title:</label>
+                <input type="text" name="title" value="{{ project.title }}" {% if has_investors %}disabled{% elif not project.can_edit %}disabled{% endif %}>
+
+                <label>Status:</label>
+                <select name="status" {% if not project.can_edit %}disabled{% endif %}>
+                    <option value="open" {% if project.status=='open' %}selected{% endif %}>Open</option>
+                    <option value="in progress" {% if project.status=='in progress' %}selected{% endif %}>In Progress</option>
+                    <option value="closed" {% if project.status=='closed' %}selected{% endif %}>Closed</option>
+                </select>
+
+                <label>Deadline:</label>
+                <input type="date" name="deadline" value="{{ project.deadline }}" {% if has_investors %}disabled{% elif not project.can_edit %}disabled{% endif %}>
+
+                <label>Description:</label>
+                <textarea name="description" {% if has_investors %}disabled{% elif not project.can_edit %}disabled{% endif %}>{{ project.description }}</textarea>
+
+                <label>Goal:</label>
+                <textarea name="goals" {% if has_investors %}disabled{% elif not project.can_edit %}disabled{% endif %}>{{ project.goals }}</textarea>
+
+                <label>Amount (EGP):</label>
+                <input type="number" name="amount" value="{{ project.amount }}" {% if has_investors %}disabled{% elif not project.can_edit %}disabled{% endif %}>
+
+                {% if project.media_url %}
+                    <img src="{{ url_for('static', filename=project.media_url.replace('static/', '')) }}" 
+                         alt="Project Media" class="project-image">
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="project-actions">
+                    {% if project.can_edit %}
+                        <button class="btn btn-edit save-btn">Save</button>
+                    {% else %}
+                        <button class="btn btn-disabled" disabled>Edit</button>
+                    {% endif %}
+
+                    {% if project.can_delete %}
+                        <a href="/delete-project/{{ project._id|string }}" class="btn btn-delete"
+                           onclick="return confirm('Are you sure you want to delete this project?')">Delete</a>
+                    {% else %}
+                        <button class="btn btn-disabled" disabled>Delete</button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No projects found.</p>
+    {% endif %}
+</div>
+
+<style>
+.projects-container { max-width: 900px; margin: 30px auto; display: flex; flex-direction: column; gap: 20px; }
+.project-card { background: #fffdf6; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.project-card label { display: block; font-weight: 600; margin-top: 10px; }
+.project-card input[type=text], .project-card input[type=number], .project-card input[type=date], .project-card textarea, .project-card select {
+    width: 100%; padding: 8px 10px; margin-top: 4px; border-radius: 8px; border: 1px solid #ccc;
+    font-size: 14px; resize: vertical;
+}
+.project-card textarea { min-height: 60px; }
+.project-image { max-width: 100%; margin-top: 10px; border-radius: 12px; }
+.project-actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { padding: 8px 16px; border-radius: 10px; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; }
+.btn-edit { background: #2a9a47; color: #fff; }
+.btn-edit:hover { background: #22803a; }
+.btn-delete { background: #d9534f; color: #fff; }
+.btn-delete:hover { background: #c9302c; }
+.btn-disabled { background: #ccc; color: #666; cursor: not-allowed; }
+.save-btn.editing { background: #ffd700; color: #000; }
+</style>
+
+<script>
+document.querySelectorAll('.save-btn').forEach(btn => {
+    btn.addEventListener('click', function(e){
+        e.preventDefault();
+        const card = btn.closest('.project-card');
+        const inputs = card.querySelectorAll('input[name], textarea[name], select[name]');
+        const data = {};
+
+        inputs.forEach(i => data[i.name] = i.value);
+
+        fetch(`/edit-project-inline/${card.dataset.id}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(res => res.json())
+          .then(res => {
+            if(res.success){
+                inputs.forEach(i => i.disabled = true);
+                alert('Project updated successfully!');
+            } else {
+                alert(res.error || 'Error updating project!');
+            }
+        }).catch(err => alert('Error updating project!'));
+    });
+});
+</script>
+{% endblock %}

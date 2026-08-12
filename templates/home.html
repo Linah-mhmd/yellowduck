@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Yellow Duck{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-text">
+        <div class="eyebrow">Yellow Duck</div>
+        <h1>Invest in ambitious startups. Grow smarter capital.</h1>
+        <p>Connect founders and investors with a premium funding experience built for Egypt’s next wave of high-potential businesses.</p>
+        <div class="hero-actions">
+            <a href="/projects" class="btn btn-primary">Explore Projects</a>
+            {% if not user %}<a href="/signup" class="btn btn-secondary">Join Yellow Duck</a>{% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="search-section">
+    <input type="text" placeholder="Search projects, investors, sectors..." class="search-input">
+    <button class="search-btn">Search</button>
+</section>
+
+<section class="features">
+    <div class="section-header">
+        <h2>Designed for founders and investors alike</h2>
+        <p>Yellow Duck bundles funding optimization, investor matching, and project monitoring in one clear, premium dashboard.</p>
+    </div>
+    <div class="feature-boxes">
+        <div class="feature"><span>💡</span><strong>Smart Matching</strong> Find the right investor and project fit fast.</div>
+        <div class="feature"><span>📈</span><strong>Growth Insights</strong> Get AI-backed funding and cash flow guidance.</div>
+        <div class="feature"><span>🤝</span><strong>Trusted Network</strong> Connect with serious founders and investors.</div>
+        <div class="feature"><span>📊</span><strong>Clear Performance</strong> Track project health and investor portfolios.</div>
+    </div>
+</section>
+
+{% if user and recommendations %}
+<section class="recommendations">
+    <div class="section-header">
+        <h2>Recommended for You</h2>
+    </div>
+    <div class="recommendation-list">
+        {% for rec in recommendations %}
+        <div class="recommendation-card">
+            {% if user.role|lower == 'investor' %}
+                <h3>{{ rec.title }}</h3>
+                <p>{{ rec.description[:140] }}{% if rec.description|length > 140 %}...{% endif %}</p>
+                <p><strong>Founder:</strong> {{ rec.founder_name }}</p>
+                <p><strong>Goals:</strong> {{ rec.goals }}</p>
+                <a href="/projects/{{ rec._id|string }}?showForm=1" class="btn btn-secondary">View Project</a>
+            {% else %}
+                <h3>{{ rec.name }}</h3>
+                <p><strong>Email:</strong> {{ rec.email }}</p>
+                <p><strong>Interest:</strong> {{ rec.poll.q1 if rec.poll and rec.poll.get('q1') else 'N/A' }}</p>
+                <a href="{{ url_for('portfolio_view') }}?user_email={{ rec.email }}" class="btn btn-secondary">View Profile</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% elif user %}
+<section class="recommendations recommendations-empty">
+    <div class="section-header">
+        <h2>Recommendations</h2>
+    </div>
+    <div class="recommendation-note">
+        {% if user.role|lower == 'investor' %}
+            <p>We are preparing your startup recommendations. Please complete your investor profile and poll to see tailored projects.</p>
+            <a href="{{ url_for('portfolio_view') }}?user_email={{ user.email }}" class="btn btn-secondary">View My Profile</a>
+        {% else %}
+            <p>Investor matches will appear here once your founder profile is complete. Update your profile and poll to help us match the right investors to your idea.</p>
+            <a href="{{ url_for('update_profile') }}" class="btn btn-secondary">Update Profile</a>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

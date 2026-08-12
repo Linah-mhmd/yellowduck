@@ -1,0 +1,126 @@
+<!--Create project-->
+
+{% extends 'base.html' %}
+
+{% block title %}Create Project{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background-color: #fffdf4;
+        font-family: Arial, sans-serif;
+        margin: 0;
+    }
+
+    .form-container {
+        background-color: #fff6cc;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        width: 400px;
+        margin: 30px auto;
+    }
+
+    h1 {
+        text-align: center;
+        color: #ffb800;
+        margin-bottom: 25px;
+    }
+
+    label {
+        display: block;
+        margin-top: 10px;
+        font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="date"],
+    input[type="number"],
+    input[type="file"],
+    textarea,
+    select {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        background-color: #ffcc00;
+        color: black;
+        border: none;
+        border-radius: 7px;
+        margin-top: 20px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #ffb800;
+    }
+
+    .flash-message.error {
+        background-color: #ffe0e0;
+        color: red;
+        font-weight: bold;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+</style>
+
+<div class="form-container">
+    <h1>Create Project</h1>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="/create-project" method="POST" enctype="multipart/form-data">
+        <label>Project Title:</label>
+        <input type="text" name="title" required>
+
+        <label>Description:</label>
+        <textarea name="description" required></textarea>
+
+        <label>Goals:</label>
+        <textarea name="goals"></textarea>
+
+        <label>Deadline:</label>
+        <input type="date" name="deadline" required>
+
+        <label>Contact Email:</label>
+        <input type="email" name="contact_email" required>
+
+        <label>Phone:</label>
+        <input type="text" name="phone">
+
+        <label>Upload Media (Image/Video):</label>
+        <input type="file" name="media">
+
+        <label>Status:</label>
+        <select name="status" required>
+            <option value="">-- Select Status --</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+        </select>
+
+        <label>Initial Investment (optional):</label>
+        <input type="number" name="amount" min="0">
+
+        <button type="submit">Create Project</button>
+    </form>
+</div>
+{% endblock %}

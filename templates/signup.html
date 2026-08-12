@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Up - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <form method="POST" action="{{ url_for('signup') }}" onsubmit="return validateForm();">
+        <h2>Sign Up</h2>
+        <label for="name">Name</label>
+        <input type="text" name="name" id="name" required>
+
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" required>
+
+        <label for="nid">National ID</label>
+        <input type="text" name="nid" id="nid" required pattern="\d{14}" title="National ID must be 14 digits">
+
+        <label for="password">Password</label>
+        <input type="password" name="password" id="password" required>
+
+        <label for="confirm">Confirm Password</label>
+        <input type="password" name="confirm_password" id="confirm" required>
+
+        <label for="role">Role</label>
+        <select name="role" id="role" required>
+            <option value="founder">Founder</option>
+            <option value="investor">Investor</option>
+        </select>
+
+        <button type="submit" class="btn-primary">Sign Up</button>
+    </form>
+    <p style="text-align:center; margin-top:16px; color: var(--text-muted);">Already registered? <a href="/login" style="color: var(--accent);">Login</a></p>
+    <div id="toast" class="toast"></div>
+</div>
+<script>
+function validateForm() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm').value;
+    const nid = document.getElementById('nid').value;
+    let errors = [];
+
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+        errors.push("Password must be at least 8 characters and contain uppercase letters and numbers.");
+    }
+
+    if (password !== confirmPassword) {
+        errors.push("Passwords do not match.");
+    }
+
+    if (!/^\d{14}$/.test(nid)) {
+        errors.push("National ID must be exactly 14 digits.");
+    }
+
+    if (errors.length > 0) {
+        showToast(errors.join(" "));
+        return false;
+    }
+    return true;
+}
+
+function showToast(message) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.classList.add("show");
+    setTimeout(() => { toast.classList.remove("show"); }, 4000);
+}
+</script>
+{% endblock %}

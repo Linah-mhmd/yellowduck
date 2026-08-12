@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ 'Edit' if portfolio else 'Create' }} Portfolio - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="page-card">
+    <div class="section-header">
+        <h2>{{ 'Edit' if portfolio else 'Create' }} Portfolio</h2>
+        <p>Complete your professional profile to connect with founders, investors, and funding opportunities.</p>
+    </div>
+    <form action="{{ url_for('portfolio_form', portfolio_id=portfolio._id if portfolio else None) }}" method="POST" enctype="multipart/form-data" class="form-card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" name="name" id="name" value="{{ portfolio.name if portfolio else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" name="email" id="email" value="{{ portfolio.email if portfolio else '' }}" required placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label for="experience">Experience (years)</label>
+                <input type="number" name="experience" id="experience" value="{{ portfolio.experience if portfolio else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Preferred Fields</label>
+                <div class="checkbox-group">
+                    {% set field_options = ['Technology','Healthcare','Education','Finance','Agriculture'] %}
+                    {% for field in field_options %}
+                        <label><input type="checkbox" name="fields" value="{{ field }}" {% if portfolio and field in portfolio.fields %}checked{% endif %}> {{ field }}</label>
+                    {% endfor %}
+                    <label><input type="checkbox" name="fields" value="Other" id="other-checkbox"> Other</label>
+                </div>
+                <input type="text" name="other_field" id="other-field" placeholder="Enter your field">
+            </div>
+            <div class="form-group">
+                <label for="linkedin">LinkedIn</label>
+                <input type="text" name="linkedin" id="linkedin" value="{{ portfolio.linkedin if portfolio else '' }}" placeholder="https://linkedin.com/in/username">
+            </div>
+            <div class="form-group">
+                <label for="facebook">Facebook</label>
+                <input type="text" name="facebook" id="facebook" value="{{ portfolio.facebook if portfolio else '' }}" placeholder="https://facebook.com/username">
+            </div>
+            <div class="form-group">
+                <label for="instagram">Instagram</label>
+                <input type="text" name="instagram" id="instagram" value="{{ portfolio.instagram if portfolio else '' }}" placeholder="https://instagram.com/username">
+            </div>
+            <div class="form-group">
+                <label for="image">Profile Picture</label>
+                <input type="file" name="image" id="image">
+            </div>
+            <div class="form-group">
+                <label for="cv">Upload CV</label>
+                <input type="file" name="cv" id="cv">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="bio">Bio</label>
+            <textarea name="bio" id="bio" required>{{ portfolio.bio if portfolio else '' }}</textarea>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="business_idea">Business Idea / Goal</label>
+                <textarea name="business_idea" id="business_idea" required>{{ portfolio.business_idea if portfolio else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="skills">Key Skills / Scientific Expertise</label>
+                <textarea name="skills" id="skills" required>{{ portfolio.skills if portfolio else '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="short_term_goal">Short-term Goals</label>
+                <textarea name="short_term_goal" id="short_term_goal">{{ portfolio.short_term_goal if portfolio else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="long_term_goal">Long-term Goals</label>
+                <textarea name="long_term_goal" id="long_term_goal">{{ portfolio.long_term_goal if portfolio else '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="strengths">Strengths</label>
+                <textarea name="strengths" id="strengths">{{ portfolio.strengths if portfolio else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="weaknesses">Weaknesses</label>
+                <textarea name="weaknesses" id="weaknesses">{{ portfolio.weaknesses if portfolio else '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="industry_preferences">Industry Preferences</label>
+            <textarea name="industry_preferences" id="industry_preferences">{{ portfolio.industry_preferences if portfolio else '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="expected_contribution">Expected Contribution to Projects</label>
+            <textarea name="expected_contribution" id="expected_contribution">{{ portfolio.expected_contribution if portfolio else '' }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">{{ 'Update' if portfolio else 'Create' }} Portfolio</button>
+    </form>
+</div>
+
+<script>
+const otherCheckbox = document.getElementById('other-checkbox');
+const otherField = document.getElementById('other-field');
+if (otherCheckbox) {
+    otherCheckbox.addEventListener('change', function() {
+        otherField.style.display = this.checked ? 'block' : 'none';
+        if (!this.checked) otherField.value = '';
+    });
+}
+{% if portfolio %}
+    const existingFields = {{ portfolio.fields | tojson }};
+    const defaultFields = {{ field_options | tojson }};
+    const other = existingFields.filter(f => !defaultFields.includes(f));
+    if (other.length > 0 && otherCheckbox) {
+        otherCheckbox.checked = true;
+        otherField.style.display = 'block';
+        otherField.value = other.join(', ');
+    }
+{% endif %}
+</script>
+{% endblock %}

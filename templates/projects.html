@@ -1,0 +1,274 @@
+<!--projects.html-->
+{% extends 'base.html' %}
+
+{% block title %}All Projects{% endblock %}
+
+{% block content %}
+
+<style>
+
+.container {
+    max-width: 1050px;
+    margin: 25px auto;
+    padding: 0 20px;
+}
+
+.projects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.project-card {
+    width: 100%;
+    background: #fffef0;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2px solid #ffdd55;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    padding: 22px;
+    transition: 0.25s ease;
+}
+
+.project-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 7px 16px rgba(0,0,0,0.12);
+}
+
+.project-image img {
+    width: 100%;
+    max-height: 430px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 14px;
+}
+
+.project-content h2 {
+    font-size: 32px;
+    color: #ffb300;
+    margin: 6px 0 12px;
+    font-weight: 800;
+}
+
+.project-content p {
+    margin: 10px 0;
+    font-size: 18px;
+    color: #333;
+    line-height: 1.7;
+}
+
+.project-content strong {
+    font-size: 19px;
+    color: #000;
+    font-weight: 700;
+}
+
+.muted {
+    color: #777;
+    font-size: 16px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.view-btn {
+    padding: 10px 18px;
+    background: #ffb300;
+    color: white;
+    border-radius: 7px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 16px;
+    display: inline-block;
+}
+
+.view-btn:hover {
+    background: #e09c00;
+}
+
+.invest-btn {
+    padding: 10px 18px;
+    background: #28a745;
+    color: white;
+    border-radius: 7px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.invest-btn:hover {
+    background: #1f7a33;
+}
+
+.invest-card {
+    margin-top: 18px;
+    padding: 18px;
+    border-radius: 12px;
+    border: 2px dashed #ffe27a;
+    background: #fffdf3;
+}
+
+.invest-form .form-row {
+    margin-bottom: 14px;
+}
+
+.invest-form label {
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: block;
+    font-size: 16px;
+}
+
+.invest-form input[type="number"],
+.invest-form select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+
+.invest-button {
+    background: #28a745;
+    color: #fff;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 17px;
+    cursor: pointer;
+}
+
+.invest-button:hover {
+    background: #218838;
+}
+
+.btn {
+    padding: 10px 14px;
+    background: #fff7cc;
+    border-radius: 8px;
+    border: 1px solid #e6d67f;
+    text-decoration: none;
+    color: #555;
+    font-weight: 700;
+    font-size: 16px;
+}
+/* Health Progress Bar */
+.health-bar-container {
+    width: 100%;
+    background: #f7eab8;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e0c875;
+    margin: 12px 0;
+    height: 22px;
+}
+
+.health-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffb300, #ffdd55);
+    width: 0%;
+    transition: width 0.9s ease;
+}
+
+.health-label {
+    font-weight: 800;
+    font-size: 18px;
+    color: #d39800;
+    margin-top: 6px;
+}
+
+</style>
+
+<div class="container">
+
+    {% set single = (projects|length == 1) %}
+    {% set show_details = request.args.get('view') == '1' %}
+
+    <div class="projects-list">
+
+        {% for project in projects %}
+        <div class="project-card">
+
+            {% if project.media_url %}
+            <div class="project-image">
+                <img src="{{ url_for('static', filename=project.media_url) }}">
+            </div>
+            {% endif %}
+
+            <div class="project-content">
+                <h2>{{ project.title }}</h2>
+                <p class="muted"><strong>Founder:</strong> {{ project.founder_name }} ({{ project.founder_email }})</p>
+                <p><strong>Description:</strong> {{ project.description[:350] }}{% if project.description|length > 350 %}...{% endif %}</p>
+                <p><strong>Goals:</strong> {{ project.goals }}</p>
+                <p><strong>Status:</strong> {{ project.status }}</p>
+                <p><strong>Deadline:</strong> {{ project.deadline }}</p>
+                <p><strong>Investment Needed:</strong> {{ project.amount }} EGP</p>
+                <div class="health-label">Health Score: {{ project.health_score if project.health_score else 0 }}%</div>
+
+                <div class="health-bar-container">
+                    <div class="health-bar-fill" style="width: {{ project.health_score if project.health_score else 0 }}%;"></div>
+                </div>
+
+                <p><strong>Feedbacks:</strong> {{ project.feedback_count if project.feedback_count else 0 }}</p>
+            </div>
+
+            <div class="project-actions">
+                <a href="/projects/{{ project._id|string }}?view=1" class="view-btn">View Project</a>
+            </div>
+
+            {% if user and user.role == 'Investor' and show_details %}
+            <div class="invest-card" id="invest">
+                <h3>Invest in this Project</h3>
+
+                {% if project.status.lower() == 'closed' %}
+                    <p style="color:red; font-weight:bold;">Cannot invest: this project is closed.</p>
+                {% else %}
+                <form action="/invest/{{ project._id|string }}" method="POST" class="invest-form">
+                    <div class="form-row">
+                        <label>Investment Amount:</label>
+                        <input type="number" name="amount" required min="1">
+                    </div>
+                    <div class="form-row">
+                        <label>Frequency:</label>
+                        <select name="frequency" required>
+                            <option value="once">One-time</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Currency:</label>
+                        <select name="currency" required>
+                            <option value="USD">USD</option>
+                            <option value="EGP">EGP</option>
+                            <option value="EUR">EUR</option>
+                            <option value="SAR">SAR</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Share Percentage (%):</label>
+                        <input type="number" name="share" required min="0.1" max="100" step="0.1">
+                    </div>
+                    <button type="submit" class="invest-button">Submit Investment</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if show_details %}
+            <br>
+            <a href="/projects/{{ project._id|string }}/feedback" class="view-btn">View / Add Feedback</a>
+            {% endif %}
+
+            {% if single %}
+            <br><br>
+            <a href="/projects" class="btn">← Back to All Projects</a>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+
+    </div>
+</div>
+
+{% endblock %}

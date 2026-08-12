@@ -1,0 +1,39 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Uploads & data
+uploads/*
+!uploads/.gitkeep
+static/uploads/*
+!static/uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# ML cache (keep trained models for faster deploy)
+*.pkl
+!models/*.pkl
+*.joblib
+!models/*.joblib

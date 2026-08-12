@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Cash Flow & Funding Analysis - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="page-card">
+    <div class="section-header">
+        <h2>Cash Flow & Funding Analysis</h2>
+        <p>Upload your cash flow file or enter projections to generate AI-driven insights and funding recommendations.</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="form-card" id="analysisForm">
+        <div class="form-group">
+            <label>Upload CSV file (optional)</label>
+            <input type="file" name="file">
+        </div>
+        <div class="form-note">— OR —</div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Average Monthly Inflow ($)</label>
+                <input type="number" step="0.01" name="avg_inflow" value="{{ request.form.get('avg_inflow','') }}">
+            </div>
+            <div class="form-group">
+                <label>Average Monthly Outflow ($)</label>
+                <input type="number" step="0.01" name="avg_outflow" value="{{ request.form.get('avg_outflow','') }}">
+            </div>
+            <div class="form-group">
+                <label>Growth Rate (%)</label>
+                <input type="number" step="0.01" name="growth_rate" value="{{ request.form.get('growth_rate','') }}">
+            </div>
+            <div class="form-group">
+                <label>Number of Months</label>
+                <input type="number" name="months" value="{{ request.form.get('months','12') }}">
+            </div>
+            <div class="form-group">
+                <label>Fiscal Year</label>
+                <input type="text" name="year" value="{{ request.form.get('year','') }}" placeholder="2025">
+            </div>
+        </div>
+        <div class="button-row">
+            <button type="submit" class="btn btn-primary">Analyze</button>
+            <button type="button" onclick="clearForm()" class="btn btn-secondary">Clear</button>
+        </div>
+    </form>
+
+    {% if result %}
+    <div class="result-card">
+        <h3>AI Financial Insights</h3>
+        {% for insight in result.insights %}
+        <div class="insight-card">
+            <h4>{{ insight.year }}</h4>
+            <p><strong>Trend:</strong> <span class="tag {% if insight.trend == 'positive' %}tag-success{% else %}tag-danger{% endif %}">{{ insight.trend | upper }}</span></p>
+            <p><strong>Average Inflow:</strong> ${{ insight.avg_inflow | round(2) }}</p>
+            <p><strong>Average Outflow:</strong> ${{ insight.avg_outflow | round(2) }}</p>
+            <p><strong>Average Net:</strong> <span class="{% if insight.avg_net >= 0 %}text-success{% else %}text-danger{% endif %}">${{ insight.avg_net | round(2) }}</span></p>
+            <p><strong>Highest Month:</strong> {{ insight.max_month }} (${{ insight.get('max_net', 0) | round(2) }})</p>
+            <p><strong>Lowest Month:</strong> {{ insight.min_month }} (${{ insight.get('min_net', 0) | round(2) }})</p>
+            <p class="meta">{{ insight.advice }}</p>
+        </div>
+        {% endfor %}
+
+        <div class="chart-preview">
+            <h4>Net Cash Flow Chart</h4>
+            <img src="data:image/png;base64,{{ result.graph }}" alt="chart">
+        </div>
+
+        {% if result.funding %}
+        <div class="analysis-card">
+            <h4>Funding Analysis</h4>
+            <div class="analysis-grid">
+                <div><strong>Predicted Funding</strong><p>${{ result.funding.predicted_pledged }}</p></div>
+                <div><strong>Funding Gap</strong><p class="text-danger">${{ result.funding.funding_gap }}</p></div>
+                <div><strong>Success Ratio</strong><p>{{ (result.funding.success_ratio * 100) | round(1) }}%</p></div>
+                <div><strong>Risk Level</strong><p>{{ result.funding.risk_level }}</p></div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ (result.funding.success_ratio * 100) | round(1) }}%;"></div>
+            </div>
+            <p class="meta">{{ result.funding.advice }}</p>
+            <button type="button" class="btn btn-primary" onclick="downloadPDF()">Download PDF Report</button>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function clearForm() {
+  const form = document.getElementById('analysisForm');
+  const inputs = form.querySelectorAll('input[type="number"], input[type="text"], input[type="file"]');
+  inputs.forEach(input => input.value = '');
+}
+
+function downloadPDF() {
+  {% if result %}
+  const resultData = {{ result | tojson }};
+  const form = document.getElementById('analysisForm');
+  if (form) {
+    const userInput = {
+      avg_inflow: form.querySelector('[name="avg_inflow"]').value || '',
+      avg_outflow: form.querySelector('[name="avg_outflow"]').value || '',
+      growth_rate: form.querySelector('[name="growth_rate"]').value || '',
+      months: form.querySelector('[name="months"]').value || '',
+      year: form.querySelector('[name="year"]').value || ''
+    };
+    resultData.user_input = userInput;
+  }
+
+  const chartImg = document.querySelector('img[alt="chart"]');
+  if (chartImg && chartImg.src) {
+    resultData.chart = chartImg.src;
+  }
+
+  const fd = new FormData();
+  fd.append("data", JSON.stringify(resultData));
+
+  fetch("/download_pdf", { method: "POST", body: fd })
+    .then(response => {
+      if (!response.ok) throw new Error("Server error");
+      return response.blob();
+    })
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "YellowDuck_Financial_Report.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    })
+    .catch(err => alert("❌ Error generating PDF: " + err));
+  {% else %}
+    alert("⚠️ No result data to export!");
+  {% endif %}
+}
+</script>
+{% endblock %}

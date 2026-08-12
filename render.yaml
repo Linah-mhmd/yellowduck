@@ -1,0 +1,29 @@
+# Render Blueprint — Yellow Duck
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: yellowduck
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: Lax
+      - key: MONGO_DB
+        value: graduation
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"
+      - key: SMTP_ENABLED
+        value: "false"
+      - key: MONGO_URI
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

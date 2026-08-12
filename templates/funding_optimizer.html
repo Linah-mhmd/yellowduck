@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Funding Optimizer - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="page-card">
+    <div class="section-header">
+        <h2>AI Funding Optimizer</h2>
+        <p>Evaluate funding needs, capital efficiency, and get a recommended funding mix powered by AI.</p>
+    </div>
+    <form method="POST" class="form-card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Funding Needed</label>
+                <input type="number" name="funding" step="0.01" required value="{{ request.form.get('funding', '') }}">
+            </div>
+            <div class="form-group">
+                <label>Current Capital</label>
+                <input type="number" name="capital" step="0.01" required value="{{ request.form.get('capital', '') }}">
+            </div>
+            <div class="form-group">
+                <label>Monthly Revenue</label>
+                <input type="number" name="revenue" step="0.01" required value="{{ request.form.get('revenue', '') }}">
+            </div>
+            <div class="form-group">
+                <label>Monthly Expenses</label>
+                <input type="number" name="expenses" step="0.01" required value="{{ request.form.get('expenses', '') }}">
+            </div>
+            <div class="form-group">
+                <label>Growth Rate (%)</label>
+                <input type="number" name="growth_rate" step="0.01" required value="{{ request.form.get('growth_rate', '') }}">
+            </div>
+            <div class="form-group">
+                <label>Project Duration (months)</label>
+                <input type="number" name="duration" required value="{{ request.form.get('duration', '') }}">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Analyze Funding</button>
+    </form>
+
+    {% if result %}
+    <div class="result-card">
+        <h3>AI Financial Analysis Report</h3>
+        <div class="result-grid">
+            <p><strong>Predicted Risk Level:</strong> <span class="highlight">{{ result.predicted_risk|upper }}</span></p>
+            <p><strong>Profitability:</strong> {{ (result.profitability * 100) | round(2) }}%</p>
+            <p><strong>Stability:</strong> {{ (result.stability * 100) | round(2) }}%</p>
+            <p><strong>Predicted Next Inflow:</strong> <span class="highlight">${{ result.predicted_inflow | round(2) }}</span></p>
+        </div>
+        <h4>Recommended Funding Mix</h4>
+        <ul>
+            <li>Equity: {{ result.equity }}%</li>
+            <li>Debt: {{ result.debt }}%</li>
+            <li>Grants: {{ result.grants }}%</li>
+        </ul>
+        <p><strong>Strategic Insight:</strong> {{ result.advice }}</p>
+        <p><strong>AI Comment:</strong> {{ result.ai_comment }}</p>
+    </div>
+    <div class="chart-container">
+        <canvas id="fundingChart"></canvas>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('fundingChart').getContext('2d');
+        const fundingChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Equity', 'Debt', 'Grants'],
+                datasets: [{
+                    data: [{{ result.equity }}, {{ result.debt }}, {{ result.grants }}],
+                    backgroundColor: ['#ffca00', '#3d5af8', '#ffd966'],
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Funding Mix Distribution',
+                        color: '#333',
+                        font: { size: 18 }
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+</div>
+{% endblock %}

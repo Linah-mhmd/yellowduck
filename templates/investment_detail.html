@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Investment Details - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="page-card">
+    <div class="section-header">
+        <h2>Investment Details</h2>
+        <p>Review the investment request and choose the action that best fits your funding strategy.</p>
+    </div>
+    <div class="detail-card">
+        <p><strong>Project:</strong> {{ investment.project_title }}</p>
+        <p><strong>Amount:</strong> {{ investment.amount }}</p>
+        <p><strong>Status:</strong> {{ investment.status }}</p>
+        <p><strong>Investor:</strong> {{ investor.name if investor else investment.investor_email }}</p>
+        <p><strong>Investor Email:</strong> {{ investment.investor_email }}</p>
+    </div>
+    {% if investment.status == 'pending' %}
+    <div class="button-row">
+        <form action="{{ url_for('accept_investment', investment_id=investment._id) }}" method="POST">
+            <button class="btn btn-primary">Accept</button>
+        </form>
+        <form action="{{ url_for('dismiss_investment', investment_id=investment._id) }}" method="POST">
+            <button class="btn btn-secondary">Dismiss</button>
+        </form>
+    </div>
+    {% endif %}
+    <div class="button-row">
+        <a href="{{ url_for('notifications') }}" class="btn btn-secondary">Back to Notifications</a>
+    </div>
+</div>
+{% endblock %}

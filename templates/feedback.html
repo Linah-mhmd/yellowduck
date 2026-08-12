@@ -1,0 +1,287 @@
+<!--feedback.html-->
+{% extends 'base.html' %}
+
+{% block title %}Feedback for {{ project.title }}{% endblock %}
+
+{% block content %}
+
+<!-- MAIN FEEDBACK BOX -->
+<div class="box feedback-container">
+
+    <div class="feedback-header-top">
+        <h2 class="section-title">Feedback for "{{ project.title }}"</h2>
+
+        {% if feedbacks|length > 2 %}
+        <button id="toggleBtn" class="btn-light view-more-btn">View More</button>
+        {% endif %}
+    </div>
+
+    <div class="feedback-list" id="feedbackList">
+        {% for fb in feedbacks %}
+        <div class="feedback-card feedback-entry"
+            style="display: {% if loop.index <= 2 %}block{% else %}none{% endif %};">
+
+            <div class="feedback-header">
+                <!-- USER NAME -->
+                <a href="{{ url_for('portfolio_view') }}?user_email={{ fb.user_email }}" class="user-link">
+                    👨 {{ fb.user_name }}
+                </a>
+
+                <span class="rating-badge">⭐ {{ fb.rating }}/5</span>
+            </div>
+
+            <p class="feedback-text">{{ fb.comment }}</p>
+
+            <small class="timestamp">🕒 {{ fb.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if user %}
+    <form method="POST" class="feedback-form">
+        <h3 class="form-title">Add Your Feedback</h3>
+
+        <textarea name="comment" placeholder="Write your feedback..." required></textarea>
+
+        <div class="rating-box">
+            <label>Rating:</label>
+            <select name="rating" required>
+                <option value="1">1 ⭐</option>
+                <option value="2">2 ⭐⭐</option>
+                <option value="3" selected>3 ⭐⭐⭐</option>
+                <option value="4">4 ⭐⭐⭐⭐</option>
+                <option value="5">5 ⭐⭐⭐⭐⭐</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn-gold">Submit Feedback</button>
+    </form>
+    {% endif %}
+</div>
+
+
+
+<!-- INVESTORS SECTION -->
+<div class="box investors-container">
+
+    <h3 class="section-title green">💰 Investors for "{{ project.title }}"</h3>
+
+    <div class="investors-list">
+        {% if investors %}
+        {% for inv in investors %}
+        <div class="investor-card">
+
+            <div class="investor-info">
+
+                <!-- FIXED USER IMAGE FROM uploads -->
+                <div class="investor-emoji">👨</div>
+
+                <div class="investor-details">
+                    <a href="{{ url_for('portfolio_view') }}?user_email={{ inv.investor_email }}" class="user-link">
+                        {{ inv.name if inv.name else inv.investor_email }}
+                    </a>
+
+                    <p>Invested: ${{ inv.amount }}</p>
+                    {% if inv.share %}
+                    <p>Shares: {{ inv.share }}%</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty">No investors yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- ======================= STYLING ======================= -->
+<style>
+
+/* MAIN BOX */
+.box {
+    max-width: 880px;
+    margin: 35px auto;
+    background: #fffdfa;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 5px 16px rgba(0,0,0,0.07);
+}
+
+/* TOP HEADER (fix overlap) */
+.feedback-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+.investor-emoji {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    background: #fff3c4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    border: 2px solid #f1c232;
+}
+
+
+/* TITLES */
+.section-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #d4a017;
+    margin: 0;
+}
+.section-title.green {
+    color: #2a9a47;
+}
+
+/* FEEDBACK CARD */
+.feedback-card {
+    background: #fff7c7;
+    padding: 18px;
+    border-radius: 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    transition: 0.2s;
+}
+.feedback-card:hover {
+    transform: translateY(-3px);
+}
+
+.feedback-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.feedback-text {
+    padding: 6px 0;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* USER LINK */
+.user-link {
+    color: #a06f00;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 16px;
+}
+.user-link:hover {
+    text-decoration: underline;
+}
+
+/* Rating badge */
+.rating-badge {
+    background: #ffd451;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+/* FORM AREA */
+.feedback-form {
+    margin-top: 35px;
+}
+.feedback-form textarea {
+    width: 100%;
+    height: 130px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid #d8c27a;
+    resize: none;
+    font-size: 15px;
+    background: #fff;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.04);
+}
+
+/* NICE DROPDOWN */
+.feedback-form select {
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #d8c27a;
+    background: white;
+    margin-left: 10px;
+}
+
+/* BUTTONS */
+.btn-gold {
+    background: #d4a017;
+    padding: 12px 20px;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: bold;
+    transition: 0.2s;
+    margin-top: 15px;
+}
+.btn-gold:hover {
+    background: #b7870e;
+}
+
+.btn-light {
+    padding: 8px 15px;
+    background: #fff2b3;
+    border: 1px solid #d4a017;
+    color: #b7870e;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-light:hover {
+    background: #ffe680;
+}
+
+/* INVESTOR CARDS */
+.investor-card {
+    background: #fffbe8;
+    padding: 16px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    border-left: 6px solid #f1c232;
+}
+
+.investor-img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #f1c232;
+}
+
+/* EMPTY TEXT */
+.empty {
+    text-align: center;
+    color: #777;
+    font-size: 15px;
+}
+
+</style>
+
+
+<!-- JS FOR SHOW MORE -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const items = document.querySelectorAll(".feedback-entry");
+    const btn = document.getElementById("toggleBtn");
+    let open = false;
+
+    if (btn) {
+        btn.onclick = () => {
+            open = !open;
+            items.forEach((item, i) => item.style.display = (i < 2 || open) ? "block" : "none");
+            btn.textContent = open ? "Show Less" : "View More";
+        };
+    }
+});
+</script>
+
+{% endblock %}

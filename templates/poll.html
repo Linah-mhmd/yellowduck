@@ -1,0 +1,139 @@
+<!--poll.html-->
+{% extends "base.html" %}
+
+{% block title %}Poll{% endblock %}
+
+{% block content %}
+<form method="POST" class="poll-form">
+  <h2 class="poll-title">Answer a few questions</h2>
+  <h3 class="poll-subtitle">For {{ user.role }}</h3>
+
+  {% if user.role.lower() == "founder" %}
+    <h4>🔹 Business & Problem</h4>
+    <label>What problem does your startup solve?</label>
+    <textarea name="q1" required></textarea>
+
+    <label>What unique value do you provide compared to competitors?</label>
+    <textarea name="q2" required></textarea>
+
+    <h4>🔹 Market & Customers</h4>
+    <label>Who is your target audience?</label>
+    <input type="text" name="q3" required>
+
+    <label>What is the estimated market size you are targeting?</label>
+    <input type="text" name="q4">
+
+    <label>Have you conducted customer research or surveys?</label>
+    <select name="q5" required>
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+      <option value="in_progress">In Progress</option>
+    </select>
+
+    <h4>🔹 Funding & Growth</h4>
+    <label>What is your current funding stage?</label>
+    <select name="q6" required>
+      <option value="idea">Idea</option>
+      <option value="pre_seed">Pre-Seed</option>
+      <option value="seed">Seed</option>
+      <option value="series_a">Series A</option>
+      <option value="growth">Growth</option>
+    </select>
+
+    <label>How much funding are you seeking now?</label>
+    <input type="text" name="q7" required>
+
+    <label>How do you plan to use the funds?</label>
+    <textarea name="q8" required></textarea>
+
+    <h4>🔹 Team & Operations</h4>
+    <label>How big is your team and what are their backgrounds?</label>
+    <textarea name="q9" required></textarea>
+
+    <label>Do you have advisors or mentors?</label>
+    <select name="q10">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+      <option value="planning">Planning to</option>
+    </select>
+
+    <h4>🔹 Vision & Challenges</h4>
+    <label>What’s your biggest challenge right now?</label>
+    <textarea name="q11" required></textarea>
+
+    <label>Where do you see your startup in 5 years?</label>
+    <textarea name="q12" required></textarea>
+
+    <label>Are you open to partnerships or acquisitions?</label>
+    <select name="q13">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+      <option value="depends">Depends</option>
+    </select>
+
+  {% elif user.role.lower() == "investor" %}
+    <h4>🔹 Investment Preferences</h4>
+    <label>What industries are you most interested in?</label>
+    <input type="text" name="q1" required>
+
+    <label>What is your typical investment amount?</label>
+    <input type="text" name="q2" required>
+
+    <label>Do you prefer early-stage or late-stage startups?</label>
+    <select name="q3" required>
+      <option value="early">Early-stage</option>
+      <option value="late">Late-stage</option>
+      <option value="both">Both</option>
+    </select>
+
+    <label>Do you prefer equity, debt, or hybrid investment?</label>
+    <select name="q4" required>
+      <option value="equity">Equity</option>
+      <option value="debt">Debt</option>
+      <option value="hybrid">Hybrid</option>
+    </select>
+
+    <h4>🔹 Engagement Style</h4>
+    <label>Do you provide mentorship along with funding?</label>
+    <select name="q5">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+      <option value="sometimes">Sometimes</option>
+    </select>
+
+    <label>Do you want regular detailed reports or brief updates?</label>
+    <select name="q6">
+      <option value="detailed">Detailed Reports</option>
+      <option value="brief">Brief Updates</option>
+    </select>
+
+    <label>Would you like to join startup boards?</label>
+    <select name="q7">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+      <option value="depends">Depends</option>
+    </select>
+
+    <h4>🔹 Risk & Geography</h4>
+    <label>Do you invest locally, regionally, or globally?</label>
+    <select name="q8">
+      <option value="local">Local</option>
+      <option value="regional">Regional</option>
+      <option value="global">Global</option>
+    </select>
+
+    <label>What’s your expected ROI range?</label>
+    <input type="text" name="q9" required>
+
+    <label>Do you prefer startups with social/environmental impact?</label>
+    <select name="q10">
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+      <option value="neutral">Neutral</option>
+    </select>
+
+  {% endif %}
+
+  <button type="submit" class="btn btn-submit">Submit Poll</button>
+</form>
+{% endblock %}

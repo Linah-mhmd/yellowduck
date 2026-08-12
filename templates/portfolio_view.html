@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user.get('name', 'Portfolio') }} - Yellow Duck{% endblock %}
+
+{% block content %}
+<div class="page-card">
+    <div class="section-header">
+        <h2>{{ user.get('name', 'Portfolio') }}</h2>
+        <p>Professional portfolio overview, experience, priorities, and active investments.</p>
+    </div>
+    <div class="profile-card profile-row">
+        <div class="profile-avatar">
+            {% if user.get('image') %}
+                <img src="{{ url_for('static', filename='uploads/' ~ user.get('image')) }}" alt="Profile Picture">
+            {% endif %}
+        </div>
+        <div class="profile-details">
+            <p><strong>Email:</strong> {{ user.get('email') }}</p>
+            {% if user.get('experience') %}<p><strong>Experience:</strong> {{ user.get('experience') }} years</p>{% endif %}
+            {% if user.get('fields') %}
+                <p><strong>Preferred Fields:</strong></p>
+                <ul class="styled-list">
+                    {% for field in user.get('fields') %}
+                        <li>{{ field }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if user.get('bio') %}<p><strong>Bio:</strong> {{ user.get('bio') }}</p>{% endif %}
+            {% if user.get('cv') %}<p><a href="{{ url_for('static', filename='uploads/' ~ user.get('cv')) }}" target="_blank" class="btn btn-secondary">View CV</a></p>{% endif %}
+        </div>
+    </div>
+
+    <div class="profile-grid">
+        <div class="profile-section">
+            <h3 class="section-title">Professional Summary</h3>
+            {% for key, label in [('business_idea','Business Idea / Goal'), ('skills','Key Skills / Scientific Expertise'), ('short_term_goal','Short-term Goals'), ('long_term_goal','Long-term Goals'), ('strengths','Strengths'), ('weaknesses','Weaknesses'), ('industry_preferences','Industry Preferences'), ('expected_contribution','Expected Contribution to Projects')] %}
+                {% if user.get(key) %}
+                    <p><strong>{{ label }}:</strong> {{ user.get(key) }}</p>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="profile-section">
+            <h3 class="section-title">Social Links</h3>
+            <div class="social-links">
+                {% if user.get('linkedin') %}<a href="{{ user.get('linkedin') }}" target="_blank">LinkedIn</a>{% endif %}
+                {% if user.get('facebook') %}<a href="{{ user.get('facebook') }}" target="_blank">Facebook</a>{% endif %}
+                {% if user.get('instagram') %}<a href="{{ user.get('instagram') }}" target="_blank">Instagram</a>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if session.get('user_email') == user.get('email') %}
+    <div class="profile-section" style="text-align:center;">
+        <a href="{{ url_for('portfolio_form', portfolio_id=user._id|string) }}" class="btn btn-primary">Edit Portfolio</a>
+    </div>
+    {% endif %}
+
+    {% if investments %}
+    <div class="profile-section">
+        <h3 class="section-title">Investments</h3>
+        {% for inv in investments %}
+        <div class="notification-card">
+            <div class="meta">
+                <strong>{{ inv.get('investor_name', 'Anonymous') }}</strong>
+                <span>{{ inv.get('amount') }} {{ inv.get('currency') }}</span>
+            </div>
+            <p><strong>Share:</strong> {{ inv.get('share') }}</p>
+            {% if inv.get('project_title') %}<p><strong>Project:</strong> {{ inv.get('project_title') }}</p>{% endif %}
+            {% if inv.get('founder_name') %}<p><strong>Founder:</strong> {{ inv.get('founder_name') }}</p>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

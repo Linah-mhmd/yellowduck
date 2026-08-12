@@ -10,7 +10,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements-prod.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
@@ -20,6 +20,7 @@ RUN mkdir -p static/uploads uploads models && chmod +x start.sh
 
 ENV FLASK_DEBUG=false
 ENV PORT=5001
+ENV LIGHTWEIGHT_DEPLOY=true
 EXPOSE 5001
 
 CMD ["./start.sh"]

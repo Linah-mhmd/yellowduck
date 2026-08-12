@@ -19,8 +19,6 @@ from security import hash_password, verify_password, needs_rehash
 from auth_tokens import create_auth_token, consume_auth_token
 from email_service import send_verification_email, send_reset_email
 
-from ai_funding_optimizer import train_models, analyze_funding
-from cash_flow import analyze_cash_flow
 from recommendations import recommend_projects_for_investor, recommend_investors_for_founder_project
 from search_utils import build_project_search_query, infer_sector, infer_tags, backfill_project_sectors
 
@@ -743,6 +741,7 @@ _flow_model, _scaler, _scale_info = None, None, None
 def get_funding_models():
     global _flow_model, _scaler, _scale_info
     if _flow_model is None:
+        from ai_funding_optimizer import train_models
         _flow_model, _scaler, _scale_info = train_models()
     return _flow_model, _scaler, _scale_info
 
@@ -750,6 +749,7 @@ def get_funding_models():
 @api.route('/funding-optimizer', methods=['POST'])
 @require_founder
 def funding_optimizer_api():
+    from ai_funding_optimizer import analyze_funding
     data = request.get_json() or {}
     flow_model, scaler, scale_info = get_funding_models()
     result = analyze_funding(
@@ -768,6 +768,7 @@ def funding_optimizer_api():
 @api.route('/cash-flow', methods=['POST'])
 @require_founder
 def cash_flow_api():
+    from cash_flow import analyze_cash_flow
     result = None
     error_message = None
     try:

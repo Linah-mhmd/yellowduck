@@ -1,126 +1,79 @@
 # ==============================
-# recommendation.py
+# recommendations.py — lightweight TF-IDF matching (no torch)
 # ==============================
 import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from pymongo import MongoClient
-from sentence_transformers import SentenceTransformer, util
 
-# ==============================
-#  Connect to MongoDB and Load Data
-# ==============================
-def load_data_from_mongo(uri, db_name, collection_name):
-    """
-    Load project data from MongoDB and prepare it for embeddings.
-    Ensure all necessary columns exist and combine idea + sector into one text field.
-    """
-    client = MongoClient(uri)
-    db = client[db_name]
-    collection = db[collection_name]
 
-    data = pd.DataFrame(list(collection.find()))
+def _text_similarity(query: str, texts: list) -> list:
+    """Return cosine similarity between query and each text."""
+    cleaned = [str(t or '').strip() for t in texts]
+    if not cleaned or not str(query or '').strip():
+        return [0.0] * len(cleaned)
+    corpus = [str(query).strip()] + cleaned
+    vectorizer = TfidfVectorizer(stop_words='english', max_features=3000)
+    matrix = vectorizer.fit_transform(corpus)
+    return cosine_similarity(matrix[0:1], matrix[1:])[0].tolist()
 
-    # Ensure required columns exist
-    for col, default in {
-        "idea": "",
-        "sector": "",
-        "capital_needed": 0,
-        "capital_current": 0,
-    }.items():
-        if col not in data.columns:
-            data[col] = default
 
-    # Convert types
-    data["idea"] = data["idea"].astype(str)
-    data["sector"] = data["sector"].astype(str)
-    data["capital_needed"] = pd.to_numeric(data["capital_needed"], errors="coerce").fillna(0)
-    data["capital_current"] = pd.to_numeric(data["capital_current"], errors="coerce").fillna(0)
-
-    # Combine idea and sector for embeddings
-    data["text"] = data["idea"] + " sector: " + data["sector"]
-    return data
-
-# ==============================
-#  Load Sentence-BERT Model
-# ==============================
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
-# ==============================
-#  Recommend Projects for Investor
-# ==============================
 def recommend_projects_for_investor(all_projects, investor_interest):
-    """
-    Recommend all projects for an investor based on their interest.
-    Sort projects by similarity descending.
-    """
+    """Recommend projects for an investor based on interest text."""
     df = pd.DataFrame(all_projects)
-
     if df.empty:
         return []
 
-    # Ensure columns exist
-    for col in ["title", "description", "goals", "sector"]:
+    for col in ['title', 'description', 'goals', 'sector']:
         if col not in df.columns:
-            df[col] = ""
+            df[col] = ''
 
-    # Combine project text for embeddings safely
-    df["text"] = (
-        df["title"].fillna("") + " " +
-        df["description"].fillna("") + " " +
-        df["goals"].fillna("") + " " +
-        df["sector"].fillna("")
+    df['text'] = (
+        df['title'].fillna('') + ' '
+        + df['description'].fillna('') + ' '
+        + df['goals'].fillna('') + ' '
+        + df['sector'].fillna('')
     )
 
-    # Encode investor interest
-    investor_embedding = model.encode(investor_interest, convert_to_numpy=True)
+    df['similarity'] = _text_similarity(investor_interest, df['text'].tolist())
+    return df.sort_values(by='similarity', ascending=False).to_dict(orient='records')
 
-    # Encode all projects
-    project_embeddings = model.encode(df["text"].tolist(), convert_to_numpy=True)
 
-    # Compute cosine similarity between investor and projects
-    similarities = util.cos_sim(investor_embedding, project_embeddings)[0]
-    df["similarity"] = similarities
-
-    # Sort projects by similarity descending
-    df_sorted = df.sort_values(by="similarity", ascending=False)
-
-    return df_sorted.to_dict(orient="records")
-
-# ==============================
-#  Recommend Investors for Founder
-# ==============================
 def recommend_investors_for_founder_project(project_data, mongo_uri, db_name, threshold=0.2):
+    """Recommend investors for a founder project."""
     from pymongo import MongoClient
-    from sentence_transformers import SentenceTransformer, util
-    from sklearn.metrics.pairwise import cosine_similarity
 
-    model = SentenceTransformer("all-MiniLM-L6-v2")
     client = MongoClient(mongo_uri)
     db = client[db_name]
-    users = list(db.users.find({"role": {"$regex": "^investor$", "$options": "i"}}))
-
+    users = list(db.users.find({'role': {'$regex': '^investor$', '$options': 'i'}}))
     if not users:
         return []
 
-    project_text = f"{project_data.get('idea','')} {project_data.get('description','')} {project_data.get('sector','')}"
-    proj_emb = model.encode([project_text], convert_to_numpy=True)
+    project_text = ' '.join([
+        str(project_data.get('idea', '')),
+        str(project_data.get('description', '')),
+        str(project_data.get('sector', '')),
+    ]).strip()
+    project_sector = str(project_data.get('sector', '')).lower()
 
-    results = []
+    investor_texts = []
     for u in users:
-        poll = u.get("poll", {})
-        investor_text = " ".join([str(v) for v in poll.values()])
-        investor_sector = u.get("sector", "")
-        full_text = investor_text + " " + investor_sector
-        inv_emb = model.encode([full_text], convert_to_numpy=True)
-        sim = cosine_similarity(proj_emb, inv_emb)[0][0]
-        sector_bonus = 0.1 if project_data.get("sector", "").lower() == investor_sector.lower() else 0
-        score = sim + sector_bonus
+        poll = u.get('poll', {})
+        investor_text = ' '.join(str(v) for v in poll.values())
+        investor_sector = u.get('sector', '')
+        investor_texts.append(f'{investor_text} {investor_sector}'.strip())
+
+    scores = _text_similarity(project_text, investor_texts)
+    results = []
+    for u, sim in zip(users, scores):
+        investor_sector = u.get('sector', '')
+        sector_bonus = 0.1 if project_sector and project_sector == str(investor_sector).lower() else 0
+        score = float(sim) + sector_bonus
         if score >= threshold:
             results.append({
-                "name": u.get("name", ""),
-                "email": u.get("email", ""),
-                "poll": poll,
-                "sector": investor_sector,
-                "similarity": float(score)
+                'name': u.get('name', ''),
+                'email': u.get('email', ''),
+                'poll': u.get('poll', {}),
+                'sector': investor_sector,
+                'similarity': score,
             })
-    return sorted(results, key=lambda x: x["similarity"], reverse=True)
+    return sorted(results, key=lambda x: x['similarity'], reverse=True)

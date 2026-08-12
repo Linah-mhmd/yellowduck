@@ -64,8 +64,9 @@ def _warm_ml_models():
         print(f'Cash flow warmup skipped: {e}')
 
 
-import threading
-threading.Thread(target=_warm_ml_models, daemon=True).start()
+if os.getenv('LIGHTWEIGHT_DEPLOY', 'false').lower() not in ('1', 'true', 'yes'):
+    import threading
+    threading.Thread(target=_warm_ml_models, daemon=True).start()
 
 
 @app.route('/api/health', methods=['GET'])

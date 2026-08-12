@@ -8,7 +8,6 @@ from io import BytesIO
 
 import base64
 import io
-import pandas as pd
 from bson.objectid import ObjectId
 from flask import Blueprint, jsonify, request, session, send_file
 from werkzeug.utils import secure_filename
@@ -460,15 +459,8 @@ def home_data():
             if user["role"].lower() == "investor":
                 all_projects = list(db['projects'].find())
                 if all_projects:
-                    df_projects = pd.DataFrame(all_projects)
-                    for col in ["title", "description", "goals", "sector"]:
-                        if col not in df_projects.columns:
-                            df_projects[col] = ""
-                        else:
-                            df_projects[col] = df_projects[col].astype(str)
-                    df_projects["text"] = df_projects["title"] + " " + df_projects["description"] + " " + df_projects["goals"] + " " + df_projects["sector"]
                     investor_interest = " ".join([str(v) for v in user.get("poll", {}).values()])
-                    recommendations = recommend_projects_for_investor(df_projects, investor_interest)
+                    recommendations = recommend_projects_for_investor(all_projects, investor_interest)
             elif user["role"].lower() == "founder":
                 project_data = {
                     "idea": user["poll"].get("q1", ""),
@@ -749,7 +741,10 @@ def get_funding_models():
 @api.route('/funding-optimizer', methods=['POST'])
 @require_founder
 def funding_optimizer_api():
-    from ai_funding_optimizer import analyze_funding
+    try:
+        from ai_funding_optimizer import analyze_funding
+    except ImportError:
+        return jsonify({'error': 'ML features unavailable on this hosting plan.'}), 503
     data = request.get_json() or {}
     flow_model, scaler, scale_info = get_funding_models()
     result = analyze_funding(
@@ -768,7 +763,10 @@ def funding_optimizer_api():
 @api.route('/cash-flow', methods=['POST'])
 @require_founder
 def cash_flow_api():
-    from cash_flow import analyze_cash_flow
+    try:
+        from cash_flow import analyze_cash_flow
+    except ImportError:
+        return jsonify({'error': 'ML features unavailable on this hosting plan.'}), 503
     result = None
     error_message = None
     try:

@@ -1,45 +1,43 @@
 # ==============================
-# recommendations.py — lightweight TF-IDF matching (no torch)
+# recommendations.py — lightweight TF-IDF matching (no torch/pandas)
 # ==============================
-import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
 def _text_similarity(query: str, texts: list) -> list:
-    """Return cosine similarity between query and each text."""
     cleaned = [str(t or '').strip() for t in texts]
     if not cleaned or not str(query or '').strip():
         return [0.0] * len(cleaned)
     corpus = [str(query).strip()] + cleaned
-    vectorizer = TfidfVectorizer(stop_words='english', max_features=3000)
+    vectorizer = TfidfVectorizer(stop_words='english', max_features=2000)
     matrix = vectorizer.fit_transform(corpus)
     return cosine_similarity(matrix[0:1], matrix[1:])[0].tolist()
 
 
 def recommend_projects_for_investor(all_projects, investor_interest):
-    """Recommend projects for an investor based on interest text."""
-    df = pd.DataFrame(all_projects)
-    if df.empty:
+    if not all_projects:
         return []
 
-    for col in ['title', 'description', 'goals', 'sector']:
-        if col not in df.columns:
-            df[col] = ''
+    scored = []
+    texts = []
+    for project in all_projects:
+        text = ' '.join([
+            str(project.get('title', '')),
+            str(project.get('description', '')),
+            str(project.get('goals', '')),
+            str(project.get('sector', '')),
+        ])
+        texts.append(text)
+        scored.append(dict(project))
 
-    df['text'] = (
-        df['title'].fillna('') + ' '
-        + df['description'].fillna('') + ' '
-        + df['goals'].fillna('') + ' '
-        + df['sector'].fillna('')
-    )
-
-    df['similarity'] = _text_similarity(investor_interest, df['text'].tolist())
-    return df.sort_values(by='similarity', ascending=False).to_dict(orient='records')
+    similarities = _text_similarity(investor_interest, texts)
+    for item, sim in zip(scored, similarities):
+        item['similarity'] = float(sim)
+    return sorted(scored, key=lambda x: x.get('similarity', 0), reverse=True)
 
 
 def recommend_investors_for_founder_project(project_data, mongo_uri, db_name, threshold=0.2):
-    """Recommend investors for a founder project."""
     from pymongo import MongoClient
 
     client = MongoClient(mongo_uri)

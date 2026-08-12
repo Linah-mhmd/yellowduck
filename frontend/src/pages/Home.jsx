@@ -99,16 +99,19 @@ export default function Home() {
       </section>
 
       <section className="search-section">
-        <form onSubmit={handleSearch} className="search-bar-inline search-bar-hero">
+        <form onSubmit={handleSearch} className="search-form search-form-hero">
           <input
             className="search-input"
-            type="search"
+            type="text"
+            inputMode="search"
+            autoComplete="off"
             placeholder={t('home.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             dir="auto"
+            enterKeyHint="search"
           />
-          <button type="submit" className="btn btn-primary">{t('home.search')}</button>
+          <button type="submit" className="btn btn-primary search-submit-btn">{t('home.search')}</button>
         </form>
         <p className="search-hint">{t('home.searchHint')}</p>
       </section>

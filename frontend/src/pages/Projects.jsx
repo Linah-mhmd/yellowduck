@@ -67,15 +67,19 @@ export default function Projects() {
         subtitle={query ? t('projects.resultsFor', { query }) : t('projects.subtitle')}
       />
 
-      <form onSubmit={handleSearch} className="search-bar-inline">
+      <form onSubmit={handleSearch} className="search-form search-form-page">
         <input
-          type="search"
+          className="search-input"
+          type="text"
+          inputMode="search"
+          autoComplete="off"
           placeholder={t('projects.searchPlaceholder')}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           dir="auto"
+          enterKeyHint="search"
         />
-        <button type="submit" className="btn btn-primary">{t('projects.search')}</button>
+        <button type="submit" className="btn btn-primary search-submit-btn">{t('projects.search')}</button>
       </form>
       <p className="search-hint">{t('projects.searchHint')}</p>
 

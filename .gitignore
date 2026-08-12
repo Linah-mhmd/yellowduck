@@ -1,6 +1,7 @@
 # Environment
 .env
 .env.local
+render-env-copypaste.txt
 
 # Python
 __pycache__/

@@ -1,8 +1,8 @@
 # Yellow Duck — React + Flask
 
-منصة استثمارية ذكية تربط بين رواد الأعمال والمستثمرين، مع تحليل AI للتمويل والتدفق النقدي.
+A smart investment platform connecting founders and investors, with AI-powered funding and cash flow analysis.
 
-## الهيكل الجديد
+## Project Structure
 
 ```
 yellowduck/
@@ -12,7 +12,7 @@ yellowduck/
 │   ├── src/
 │   │   ├── components/ # Layout, ProtectedRoute
 │   │   ├── context/    # AuthContext
-│   │   ├── pages/      # 15 صفحة React
+│   │   ├── pages/      # 15 React pages
 │   │   ├── services/   # API client (axios)
 │   │   └── styles/     # CSS
 │   └── package.json
@@ -22,21 +22,21 @@ yellowduck/
 └── requirements.txt
 ```
 
-## المتطلبات
+## Requirements
 
 - Python 3.10+
 - Node.js 18+
 - MongoDB (localhost:27017)
 
-## الإعداد
+## Setup
 
 ```bash
 cd yellowduck
-copy .env.example .env   # عدّل SECRET_KEY و MONGO_URI
+copy .env.example .env   # edit SECRET_KEY and MONGO_URI
 pip install -r requirements.txt
 ```
 
-## التشغيل — Development
+## Development
 
 ### 1. Backend (Flask API)
 
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-يعمل على: `http://localhost:5001`
+Runs at: `http://localhost:5001`
 
 ### 2. Frontend (React)
 
@@ -56,9 +56,9 @@ npm install
 npm run dev
 ```
 
-يعمل على: `http://localhost:3000` (مع proxy تلقائي للـ API)
+Runs at: `http://localhost:3000` (with automatic API proxy)
 
-## التشغيل — Production
+## Production
 
 ```bash
 cd yellowduck/frontend
@@ -69,38 +69,38 @@ cd ..
 python app.py
 ```
 
-Flask يخدم React build من `frontend/dist` تلقائياً.
+Flask automatically serves the React build from `frontend/dist`.
 
-## الصفحات (React)
+## Pages (React)
 
-| Route | الوصف |
-|-------|-------|
-| `/` | الصفحة الرئيسية + توصيات AI |
-| `/login` | تسجيل الدخول |
-| `/signup` | إنشاء حساب |
-| `/poll` | استبيان المطابقة |
-| `/projects` | قائمة المشاريع |
-| `/projects/:id` | تفاصيل المشروع + استثمار |
-| `/create-project` | إنشاء مشروع (Founder) |
-| `/control-projects` | إدارة المشاريع |
-| `/funding-optimizer` | محلل التمويل AI |
-| `/cash-flow` | تحليل التدفق النقدي |
-| `/portfolio` | عرض الملف الشخصي |
-| `/portfolio/form` | إنشاء/تعديل Portfolio |
-| `/notifications` | الإشعارات |
-| `/investment/:id` | تفاصيل طلب الاستثمار |
+| Route | Description |
+|-------|-------------|
+| `/` | Home page + AI recommendations |
+| `/login` | Sign in |
+| `/signup` | Create account |
+| `/poll` | Matching questionnaire |
+| `/projects` | Project list |
+| `/projects/:id` | Project details + invest |
+| `/create-project` | Create project (Founder) |
+| `/control-projects` | Manage projects |
+| `/funding-optimizer` | AI funding analyzer |
+| `/cash-flow` | Cash flow analysis |
+| `/portfolio` | View profile |
+| `/portfolio/form` | Create / edit portfolio |
+| `/notifications` | Notifications |
+| `/investment/:id` | Investment request details |
 
 ## API Endpoints
 
-جميع الـ endpoints تحت `/api/`:
+All endpoints are under `/api/`:
 
-- `GET/POST /api/auth/*` — المصادقة
-- `GET /api/home` — التوصيات
-- `GET/POST /api/projects` — المشاريع
-- `POST /api/funding-optimizer` — تحليل التمويل
-- `POST /api/cash-flow` — تحليل التدفق النقدي
-- `GET/POST /api/portfolio/*` — الملف الشخصي
-- `GET /api/notifications` — الإشعارات
+- `GET/POST /api/auth/*` — Authentication
+- `GET /api/home` — Recommendations
+- `GET/POST /api/projects` — Projects
+- `POST /api/funding-optimizer` — Funding analysis
+- `POST /api/cash-flow` — Cash flow analysis
+- `GET/POST /api/portfolio/*` — Portfolio
+- `GET /api/notifications` — Notifications
 
 ## Docker
 
@@ -108,28 +108,28 @@ Flask يخدم React build من `frontend/dist` تلقائياً.
 docker-compose up --build
 ```
 
-## الاختبارات
+## Tests
 
 ```bash
 py -m pytest tests/ -v
 ```
 
-## ما تم تحسينه
+## Improvements
 
-- **Password hashing** (scrypt) مع ترقية تلقائية للحسابات القديمة
-- **صلاحيات المستخدم** — كل founder يعدّل مشاريعه فقط
-- **حذف المشاريع** — API + UI في Control Projects
-- **Portfolio upsert** — لا duplicates، تحميل تلقائي للبيانات
-- **Search** — بحث في المشاريع من Home و Projects
-- **إحصائيات حقيقية** — من MongoDB بدل أرقام وهمية
-- **404 + ErrorBoundary** — معالجة أخطاء React
-- **Docker + .env** — جاهز للـ deployment
-- **pytest** — 6 اختبارات API
-- **React SPA** بدلاً من Jinja templates — تجربة أسرع بدون reload
-- **React Router** — تنقل سلس بين الصفحات
-- **AuthContext** — إدارة حالة المستخدم مركزياً
-- **Axios API layer** — طلبات منظمة مع error handling
-- **Protected Routes** — حماية الصفحات حسب الدور (Founder/Investor)
-- **Chart.js via react-chartjs-2** — رسوم بيانية تفاعلية
-- **Flask REST API** — فصل Frontend عن Backend
-- **CORS + Session cookies** — أمان المصادقة
+- **Password hashing** (scrypt) with automatic upgrade for legacy accounts
+- **User permissions** — each founder can only edit their own projects
+- **Project deletion** — API + UI in Control Projects
+- **Portfolio upsert** — no duplicates, automatic data loading
+- **Search** — search projects from Home and Projects
+- **Real statistics** — from MongoDB instead of placeholder numbers
+- **404 + ErrorBoundary** — React error handling
+- **Docker + .env** — ready for deployment
+- **pytest** — 6 API tests
+- **React SPA** instead of Jinja templates — faster experience without full page reloads
+- **React Router** — smooth navigation between pages
+- **AuthContext** — centralized user state management
+- **Axios API layer** — organized requests with error handling
+- **Protected Routes** — page access by role (Founder / Investor)
+- **Chart.js via react-chartjs-2** — interactive charts
+- **Flask REST API** — separated frontend and backend
+- **CORS + Session cookies** — authentication security

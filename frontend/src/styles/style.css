@@ -54,6 +54,8 @@
 html {
   scroll-behavior: smooth;
   font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -63,6 +65,9 @@ body {
   min-height: 100vh;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 img, video { max-width: 100%; height: auto; display: block; }
@@ -145,11 +150,40 @@ a { color: inherit; text-decoration: none; }
 
 .logo .duck-icon { font-size: 1.6rem; }
 
-.logo span {
+.logo-text span {
   background: linear-gradient(135deg, var(--yd-gold), var(--yd-gold-dark));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.logo span:not(.logo-text span) {
+  background: linear-gradient(135deg, var(--yd-gold), var(--yd-gold-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.eyebrow-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-link {
+  gap: 8px;
+}
+
+.hero-duck svg {
+  opacity: 0.2;
+}
+
+.auth-duck-icon {
+  margin-bottom: 16px;
+}
+
+.feature-icon svg {
+  display: block;
 }
 
 .nav-links {
@@ -208,8 +242,8 @@ a { color: inherit; text-decoration: none; }
 .account-icon {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 8px;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
   background: var(--yd-white);
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
@@ -217,18 +251,23 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.875rem;
   transition: all var(--transition);
   box-shadow: var(--shadow-sm);
+  max-width: 180px;
 }
 
-.account-icon::before {
-  content: '👤';
+.account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-icon svg {
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 7px;
   background: linear-gradient(135deg, var(--yd-cream-dark), var(--yd-gold-light));
   border-radius: 50%;
-  font-size: 0.9rem;
+  box-sizing: border-box;
 }
 
 .account-dropdown:hover .account-icon {
@@ -1888,35 +1927,187 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (max-width: 768px) {
-  .mobile-menu-toggle { display: inline-flex; }
+  :root { --nav-height: 64px; }
+
+  .mobile-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    order: 3;
+  }
+
+  .navbar-inner {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas: "logo actions toggle";
+    align-items: center;
+    gap: 8px 10px;
+    padding: 0 16px;
+    position: relative;
+  }
+
+  .logo {
+    grid-area: logo;
+    font-size: 1.05rem;
+    min-width: 0;
+  }
+
+  .logo-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-actions {
+    grid-area: actions;
+    gap: 6px;
+  }
+
+  .mobile-menu-toggle { grid-area: toggle; }
+
+  .lang-switcher {
+    margin-inline-end: 0;
+    padding: 2px;
+  }
+
+  .lang-switcher button {
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+
+  .account-icon {
+    padding: 6px;
+    max-width: 44px;
+  }
+
+  .account-name { display: none; }
+
   .nav-links {
     display: none;
+    grid-column: 1 / -1;
     position: absolute;
     top: var(--nav-height);
-    left: 0; right: 0;
+    left: 0;
+    right: 0;
     background: var(--yd-white);
     flex-direction: column;
-    padding: 20px 24px;
+    padding: 12px 16px 20px;
     border-bottom: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-lg);
+    z-index: 999;
+    max-height: calc(100vh - var(--nav-height));
+    overflow-y: auto;
   }
+
   .nav-links.show { display: flex; }
-  .navbar-inner { flex-wrap: wrap; position: relative; }
-  .hero { min-height: auto; padding: 60px 20px; }
-  .hero-stats { gap: 20px; }
-  .hero-stat strong { font-size: 1.5rem; }
-  .features, .recommendations { padding: 60px 20px; }
+
+  .nav-links li { width: 100%; }
+
+  .nav-links li a {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+  }
+
+  .notif-label { flex: 1; }
+
+  .dashboard-menu {
+    position: static;
+    box-shadow: none;
+    border: none;
+    padding-left: 12px;
+    margin-top: 4px;
+  }
+
+  .dashboard-menu.show { display: block; }
+
+  .hero {
+    min-height: auto;
+    padding: 48px 16px 56px;
+  }
+
+  .hero-content h1 {
+    font-size: clamp(1.75rem, 8vw, 2.5rem);
+  }
+
+  .hero-content > p {
+    font-size: 1rem;
+    margin-bottom: 28px;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    padding-top: 28px;
+  }
+
+  .hero-stat-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .hero-stat-group .hero-stat {
+    padding: 0;
+  }
+
+  .hero-stat-divider { display: none; }
+
+  .hero-stat strong { font-size: 1.35rem; }
+
+  .search-section { padding: 0 16px; }
+
+  .search-bar-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-bar-inline .search-input,
+  .search-bar-inline .btn {
+    width: 100%;
+  }
+
+  .features, .recommendations { padding: 48px 16px; }
+
+  .feature-boxes {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .feature { padding: 24px 20px; }
+
+  .page-card, .form-card, .result-card {
+    padding: 20px 16px;
+    margin: 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .content { padding-bottom: env(safe-area-inset-bottom); }
+
   .footer-grid { grid-template-columns: 1fr; gap: 32px; }
   .footer-bottom { flex-direction: column; text-align: center; }
+  .site-footer { padding: 48px 16px 24px; margin-top: 48px; }
+
   .projects-grid, .projects-list, .recommendation-list {
     grid-template-columns: 1fr;
   }
-  .btn, .view-btn, .invest-btn { width: 100%; }
+
+  .btn, .view-btn, .invest-btn { width: 100%; min-height: 48px; }
+
+  .dropdown-menu {
+    right: 0;
+    left: auto;
+    min-width: 180px;
+  }
 }
 
 @media (max-width: 480px) {
   .hero-actions { flex-direction: column; }
   .hero-actions .btn { width: 100%; }
+  .hero-stats { grid-template-columns: 1fr 1fr; }
+  .login-container, .auth-form-side { padding: 24px 16px; }
 }
 
 /* ─── Language Switcher ──────────────────────────────────── */

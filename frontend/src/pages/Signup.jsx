@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
+import { DuckIcon } from '../components/Icons';
 
 export default function Signup() {
   const [form, setForm] = useState({
@@ -48,7 +49,7 @@ export default function Signup() {
       <div className="auth-visual">
         <div className="hero-blob hero-blob-1" />
         <div className="auth-visual-content">
-          <span className="duck-icon">🦆</span>
+          <DuckIcon size={64} className="auth-duck-icon" />
           <h2>{t('auth.joinTitle')}</h2>
           <p>{t('auth.joinDesc')}</p>
         </div>

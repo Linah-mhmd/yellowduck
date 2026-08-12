@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
+import { DuckIcon } from '../components/Icons';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -33,7 +34,7 @@ export default function Login() {
       <div className="auth-visual">
         <div className="hero-blob hero-blob-1" />
         <div className="auth-visual-content">
-          <span className="duck-icon">🦆</span>
+          <DuckIcon size={64} className="auth-duck-icon" />
           <h2>{t('auth.welcomeBack')}</h2>
           <p>{t('auth.welcomeBackDesc')}</p>
         </div>

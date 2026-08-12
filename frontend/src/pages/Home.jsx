@@ -5,6 +5,7 @@ import { homeAPI, statsAPI } from '../services/api';
 import { useTranslation } from '../i18n/LanguageContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatCounter from '../components/StatCounter';
+import { DuckIcon, FEATURE_ICONS } from '../components/Icons';
 
 const DEFAULT_STATS = {
   total_projects: 0,
@@ -23,10 +24,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   const features = useMemo(() => [
-    { icon: '🎯', title: t('features.matching'), desc: t('features.matchingDesc') },
-    { icon: '📈', title: t('features.insights'), desc: t('features.insightsDesc') },
-    { icon: '🤝', title: t('features.network'), desc: t('features.networkDesc') },
-    { icon: '📊', title: t('features.performance'), desc: t('features.performanceDesc') },
+    { icon: 'target', title: t('features.matching'), desc: t('features.matchingDesc') },
+    { icon: 'chart', title: t('features.insights'), desc: t('features.insightsDesc') },
+    { icon: 'network', title: t('features.network'), desc: t('features.networkDesc') },
+    { icon: 'performance', title: t('features.performance'), desc: t('features.performanceDesc') },
   ], [t]);
 
   useEffect(() => {
@@ -70,10 +71,10 @@ export default function Home() {
           <div className="hero-blob hero-blob-3" />
           <div className="hero-grid" />
         </div>
-        <span className="hero-duck">🦆</span>
+        <div className="hero-duck" aria-hidden="true"><DuckIcon size={120} /></div>
 
         <div className="hero-content animate-fade-up">
-          <span className="eyebrow">🦆 {t('home.eyebrow')}</span>
+          <span className="eyebrow eyebrow-with-icon"><DuckIcon size={18} /> {t('home.eyebrow')}</span>
           <h1>
             {t('home.title')}<br />
             <span className="highlight">{t('home.highlight')}</span>
@@ -119,13 +120,16 @@ export default function Home() {
           <p>{t('home.designedDesc')}</p>
         </div>
         <div className="feature-boxes">
-          {features.map((f, i) => (
+          {features.map((f, i) => {
+            const Icon = FEATURE_ICONS[f.icon];
+            return (
             <div key={f.title} className={`feature animate-fade-up animate-delay-${i + 1}`}>
-              <div className="feature-icon">{f.icon}</div>
+              <div className="feature-icon">{Icon ? <Icon /> : null}</div>
               <strong>{f.title}</strong>
               <p>{f.desc}</p>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

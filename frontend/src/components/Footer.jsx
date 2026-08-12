@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../i18n/LanguageContext';
+import { DuckIcon } from './Icons';
 
 export default function Footer() {
   const { t } = useTranslation();
@@ -9,8 +10,8 @@ export default function Footer() {
       <div className="footer-grid">
         <div className="footer-brand">
           <div className="footer-logo">
-            <span className="duck-icon">🦆</span>
-            Yellow <span>Duck</span>
+            <DuckIcon size={24} />
+            <span>Yellow <span>Duck</span></span>
           </div>
           <p>{t('footer.tagline')}</p>
         </div>

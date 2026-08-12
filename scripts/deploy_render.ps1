@@ -15,10 +15,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n=== Step 2: Create GitHub repo & push ===" -ForegroundColor Cyan
+$visibility = Read-Host "Repo visibility: private or public (default: private)"
+if (-not $visibility) { $visibility = "private" }
 $repoName = Read-Host "Repo name on GitHub (e.g. yellowduck)"
 if (-not $repoName) { $repoName = "yellowduck" }
 
-& $gh repo create $repoName --public --source=. --remote=origin --push
+$visFlag = if ($visibility -eq "public") { "--public" } else { "--private" }
+& $gh repo create $repoName $visFlag --source=. --remote=origin --push
 if ($LASTEXITCODE -ne 0) {
     Write-Host "If repo exists, try: git remote add origin https://github.com/YOUR_USER/$repoName.git"
     Write-Host "Then: git push -u origin main"

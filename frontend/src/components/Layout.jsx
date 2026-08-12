@@ -5,6 +5,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
 import VerifyEmailBanner from './VerifyEmailBanner';
 import Footer from './Footer';
+import { DuckIcon, MenuIcon, BellIcon, UserIcon } from './Icons';
 
 export default function Layout() {
   const { user, notifCount, logout, isFounder } = useAuth();
@@ -42,12 +43,12 @@ export default function Layout() {
       <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="navbar-inner">
           <Link to="/" className="logo">
-            <span className="duck-icon">🦆</span>
-            Yellow <span>Duck</span>
+            <DuckIcon size={28} className="logo-svg" />
+            <span className="logo-text">Yellow <span>Duck</span></span>
           </Link>
 
           <button className="mobile-menu-toggle" type="button" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menu">
-            ☰
+            <MenuIcon />
           </button>
 
           <ul className={`nav-links ${mobileOpen ? 'show' : ''}`}>
@@ -69,7 +70,7 @@ export default function Layout() {
             {user && (
               <li>
                 <Link className="notif-link" to="/notifications" onClick={() => setMobileOpen(false)}>
-                  🔔 {t('nav.notifications')}
+                  <BellIcon /> <span className="notif-label">{t('nav.notifications')}</span>
                   {notifCount > 0 && <span className="notif-count">{notifCount}</span>}
                 </Link>
               </li>
@@ -80,7 +81,8 @@ export default function Layout() {
             <LanguageSwitcher />
             <div className="account-dropdown" ref={dropdownRef}>
               <div className="account-icon" onClick={() => setDropdownOpen(!dropdownOpen)}>
-                {user?.name || t('nav.guest')}
+                <UserIcon size={16} />
+                <span className="account-name">{user?.name || t('nav.guest')}</span>
               </div>
               <ul className={`dropdown-menu ${dropdownOpen ? 'show' : ''}`}>
                 {user ? (

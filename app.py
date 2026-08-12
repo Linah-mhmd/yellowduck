@@ -17,14 +17,18 @@ app.config['SESSION_COOKIE_SAMESITE'] = Config.SESSION_COOKIE_SAMESITE
 
 CORS(app, supports_credentials=True, origins=Config.CORS_ORIGINS)
 
-# MongoDB
+# MongoDB — longer timeouts for cloud hosting (Atlas from free PaaS)
+_MONGO_KWARGS = {
+    'serverSelectionTimeoutMS': int(os.getenv('MONGO_TIMEOUT_MS', '30000')),
+    'connectTimeoutMS': int(os.getenv('MONGO_CONNECT_TIMEOUT_MS', '20000')),
+}
 try:
-    client = MongoClient(Config.MONGO_URI, serverSelectionTimeoutMS=5000)
+    client = MongoClient(Config.MONGO_URI, **_MONGO_KWARGS)
     client.admin.command('ping')
     db = client[Config.MONGO_DB]
 except Exception as e:
     print(f'WARNING: MongoDB connection failed: {e}')
-    client = MongoClient(Config.MONGO_URI)
+    client = MongoClient(Config.MONGO_URI, **_MONGO_KWARGS)
     db = client[Config.MONGO_DB]
 
 users_col = db.users
@@ -71,12 +75,23 @@ if os.getenv('LIGHTWEIGHT_DEPLOY', 'false').lower() not in ('1', 'true', 'yes'):
 
 @app.route('/api/health', methods=['GET'])
 def health():
+    mongo_ok = False
+    mongo_error = None
+    uri = Config.MONGO_URI or ''
+    uri_configured = uri.startswith('mongodb') and 'localhost' not in uri.split('@')[-1]
     try:
         client.admin.command('ping')
         mongo_ok = True
-    except Exception:
-        mongo_ok = False
-    return jsonify({'status': 'ok' if mongo_ok else 'degraded', 'mongodb': mongo_ok})
+    except Exception as e:
+        mongo_error = type(e).__name__
+    payload = {
+        'status': 'ok' if mongo_ok else 'degraded',
+        'mongodb': mongo_ok,
+        'mongo_configured': uri_configured,
+    }
+    if mongo_error:
+        payload['mongo_error'] = mongo_error
+    return jsonify(payload)
 
 
 @app.route('/', defaults={'path': ''})

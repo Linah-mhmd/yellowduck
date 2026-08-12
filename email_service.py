@@ -3,16 +3,21 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 
 from config import Config
 
 logger = logging.getLogger(__name__)
 
 
+def _mail_from_header() -> str:
+    return formataddr((Config.MAIL_FROM_NAME, Config.MAIL_FROM))
+
+
 def _build_message(to_email: str, subject: str, html_body: str, text_body: str) -> MIMEMultipart:
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = Config.MAIL_FROM
+    msg['From'] = _mail_from_header()
     msg['To'] = to_email
     msg.attach(MIMEText(text_body, 'plain', 'utf-8'))
     msg.attach(MIMEText(html_body, 'html', 'utf-8'))
@@ -20,20 +25,28 @@ def _build_message(to_email: str, subject: str, html_body: str, text_body: str) 
 
 
 def send_email(to_email: str, subject: str, html_body: str, text_body: str) -> dict:
-    """Send email via SMTP. In dev without SMTP, log link and return preview."""
+    """Send email via SMTP. When SMTP is disabled, skip send and return dev_mode."""
     if not Config.SMTP_ENABLED:
         logger.info('DEV EMAIL → %s | %s', to_email, subject)
         logger.info('Body: %s', text_body)
         return {'sent': False, 'dev_mode': True, 'preview': text_body}
 
+    if not Config.SMTP_USER or not Config.SMTP_PASSWORD:
+        logger.warning('SMTP enabled but SMTP_USER/SMTP_PASSWORD missing')
+        return {
+            'sent': False,
+            'dev_mode': True,
+            'preview': text_body,
+            'error': 'SMTP credentials are not configured.',
+        }
+
     try:
         msg = _build_message(to_email, subject, html_body, text_body)
-        with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT) as server:
+        with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT, timeout=30) as server:
             if Config.SMTP_USE_TLS:
                 server.starttls()
-            if Config.SMTP_USER and Config.SMTP_PASSWORD:
-                server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
-            server.sendmail(Config.MAIL_FROM, [to_email], msg.as_string())
+            server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
+            server.sendmail(Config.SMTP_USER, [to_email], msg.as_string())
         return {'sent': True}
     except Exception as e:
         logger.exception('Email send failed')

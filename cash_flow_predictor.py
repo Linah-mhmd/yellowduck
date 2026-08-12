@@ -51,7 +51,7 @@ def _get_oof_predictions(model, X, y, tscv):
 
 def _chart_to_base64(fig):
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=80, bbox_inches='tight')
     buf.seek(0)
     data = base64.b64encode(buf.read()).decode('utf-8')
     plt.close(fig)

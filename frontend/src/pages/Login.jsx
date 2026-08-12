@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
 import { DuckIcon } from '../components/Icons';
+import PasswordInput from '../components/PasswordInput';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -45,7 +46,7 @@ export default function Login() {
           <p className="auth-subtitle">{t('auth.credentials')}</p>
           <form onSubmit={handleSubmit}>
             <input type="email" placeholder={t('auth.email')} value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input type="password" placeholder={t('auth.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordInput placeholder={t('auth.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
             <p className="auth-forgot-link">
               <Link to="/forgot-password">{t('auth.forgotPassword')}</Link>
             </p>

@@ -1,8 +1,10 @@
 """REST API routes for Yellow Duck React frontend."""
 import json
+import math
 import os
 import re
 import traceback
+import uuid
 from datetime import datetime
 from io import BytesIO
 
@@ -23,11 +25,139 @@ from search_utils import build_project_search_query, infer_sector, infer_tags, b
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
+
+def _json_safe(value):
+    """Convert NaN/Infinity and numpy scalars so browsers can JSON.parse the payload."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    try:
+        import numpy as np
+        if isinstance(value, np.generic):
+            val = value.item()
+            if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                return None
+            return val
+    except ImportError:
+        pass
+    if hasattr(value, 'item') and callable(value.item):
+        try:
+            return _json_safe(value.item())
+        except Exception:
+            pass
+    return value
+
 UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
+CHARTS_FOLDER = os.path.join(UPLOAD_FOLDER, "charts")
 DATASET_PATH = os.path.join(os.getcwd(), "dataset", "Financial_Plan_Statements_-_Cash_Flow.csv")
 STATIC_UPLOAD = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(CHARTS_FOLDER, exist_ok=True)
 os.makedirs(STATIC_UPLOAD, exist_ok=True)
+
+
+def _externalize_cashflow_charts(result):
+    """Save base64 chart blobs to disk; return lightweight JSON with image URLs."""
+    chart_id = uuid.uuid4().hex
+    if result.get('graph'):
+        path = os.path.join(CHARTS_FOLDER, f'{chart_id}_graph.png')
+        with open(path, 'wb') as fh:
+            fh.write(base64.b64decode(result['graph']))
+        result['graph_url'] = f'/api/cash-flow/charts/{chart_id}/graph'
+        del result['graph']
+
+    prediction = result.get('prediction') or {}
+    for key, kind in (('forecast_chart', 'forecast'),):
+        blob = prediction.get(key)
+        if blob:
+            path = os.path.join(CHARTS_FOLDER, f'{chart_id}_{kind}.png')
+            with open(path, 'wb') as fh:
+                fh.write(base64.b64decode(blob))
+            prediction[f'{key}_url'] = f'/api/cash-flow/charts/{chart_id}/{kind}'
+            del prediction[key]
+    # ML internals — keep on server only, not shown to founders
+    prediction.pop('model_chart', None)
+    prediction.pop('model_metrics', None)
+    prediction.pop('best_model', None)
+    result['prediction'] = prediction
+    result['chart_id'] = chart_id
+    return result
+
+
+def _load_chart_bytes(chart_ref):
+    """Load PNG bytes from a data URL, base64 string, or cash-flow chart API path."""
+    if not chart_ref or not isinstance(chart_ref, str):
+        return None
+
+    chart_ref = chart_ref.strip()
+    if chart_ref.startswith('data:'):
+        try:
+            _, encoded = chart_ref.split(',', 1)
+            return base64.b64decode(encoded)
+        except Exception:
+            return None
+
+    path_part = chart_ref
+    if '://' in chart_ref:
+        path_part = chart_ref.split('://', 1)[-1]
+        path_part = path_part.split('/', 1)[-1] if '/' in path_part else path_part
+        if not path_part.startswith('api/'):
+            path_part = path_part[path_part.find('api/'):] if 'api/' in path_part else path_part
+
+    match = re.search(r'cash-flow/charts/([a-f0-9]{32})/(graph|forecast)', path_part)
+    if match:
+        chart_id, kind = match.groups()
+        disk_path = os.path.join(CHARTS_FOLDER, f'{chart_id}_{kind}.png')
+        if os.path.isfile(disk_path):
+            with open(disk_path, 'rb') as fh:
+                return fh.read()
+
+    try:
+        return base64.b64decode(chart_ref)
+    except Exception:
+        return None
+
+
+def _load_chart_by_id(chart_id, kind):
+    if not chart_id or not re.fullmatch(r'[a-f0-9]{32}', chart_id):
+        return None
+    if kind not in ('graph', 'forecast'):
+        return None
+    disk_path = os.path.join(CHARTS_FOLDER, f'{chart_id}_{kind}.png')
+    if not os.path.isfile(disk_path):
+        return None
+    with open(disk_path, 'rb') as fh:
+        return fh.read()
+
+
+def _resolve_cashflow_chart_id(data):
+    chart_id = data.get('chart_id')
+    if chart_id and re.fullmatch(r'[a-f0-9]{32}', str(chart_id)):
+        return str(chart_id)
+
+    refs = [
+        data.get('chart'),
+        data.get('forecast_chart'),
+        (data.get('prediction') or {}).get('forecast_chart_url'),
+    ]
+    graph_url = data.get('graph_url') or (data.get('result') or {}).get('graph_url')
+    if graph_url:
+        refs.append(graph_url)
+
+    for ref in refs:
+        if not ref:
+            continue
+        match = re.search(r'cash-flow/charts/([a-f0-9]{32})/', str(ref))
+        if match:
+            return match.group(1)
+    return None
 
 
 def get_db():
@@ -146,7 +276,7 @@ def _send_verification(user, lang='en'):
     token = create_auth_token(db, user['email'], 'verify_email', hours=24)
     link = _verification_link(token)
     result = send_verification_email(user['email'], user.get('name', ''), link, lang)
-    if Config.DEBUG and not result.get('sent'):
+    if not result.get('sent'):
         result['dev_link'] = link
     return result
 
@@ -333,10 +463,12 @@ def auth_signup():
     mail_result = _send_verification(user, lang)
 
     session['user_email'] = email
+    email_sent = mail_result.get('sent', False)
     return jsonify({
         'user': user_response(user),
         'redirect': '/verify-email',
         'message': 'Account created. Please verify your email.',
+        'email_sent': email_sent,
         'dev_link': mail_result.get('dev_link'),
     })
 
@@ -356,7 +488,7 @@ def auth_forgot_password():
         token = create_auth_token(db, email, 'reset_password', hours=1)
         link = _reset_link(token)
         result = send_reset_email(email, user.get('name', ''), link, lang)
-        if Config.DEBUG and not result.get('sent'):
+        if not result.get('sent'):
             dev_link = link
 
     return jsonify({
@@ -400,13 +532,24 @@ def auth_verify_email():
         return jsonify({'error': 'Verification token required.'}), 400
 
     db = get_db()
+    tokens_col = db['auth_tokens']
+    users_col = db['users']
+
+    existing = tokens_col.find_one({'token': token, 'type': 'verify_email'})
+    if existing:
+        user = users_col.find_one({'email': existing['email']})
+        if user and user.get('email_verified'):
+            return jsonify({
+                'success': True,
+                'message': 'Email verified successfully!',
+                'email': existing['email'],
+            })
+
     record = consume_auth_token(db, token, 'verify_email')
     if not record:
         return jsonify({'error': 'Invalid or expired verification link.'}), 400
 
-    db['users'].update_one({"email": record['email']}, {"$set": {"email_verified": True}})
-    if session.get('user_email') == record['email']:
-        pass
+    users_col.update_one({"email": record['email']}, {"$set": {"email_verified": True}})
     return jsonify({'success': True, 'message': 'Email verified successfully!', 'email': record['email']})
 
 
@@ -415,13 +558,20 @@ def auth_verify_email():
 def auth_resend_verification():
     user = current_user()
     if user.get('email_verified'):
-        return jsonify({'message': 'Email already verified.'})
+        return jsonify({
+            'error': 'Your account is already activated.',
+            'code': 'ALREADY_VERIFIED',
+            'already_verified': True,
+        }), 400
     lang = (request.get_json() or {}).get('lang', 'en')
     result = _send_verification(user, lang)
+    email_sent = result.get('sent', False)
     return jsonify({
         'success': True,
-        'message': 'Verification email sent.',
+        'email_sent': email_sent,
+        'message': 'Verification email sent.' if email_sent else 'Email is not configured. Use the verification link below.',
         'dev_link': result.get('dev_link'),
+        'error': result.get('error'),
     })
 
 
@@ -462,10 +612,11 @@ def home_data():
                     investor_interest = " ".join([str(v) for v in user.get("poll", {}).values()])
                     recommendations = recommend_projects_for_investor(all_projects, investor_interest)
             elif user["role"].lower() == "founder":
+                poll = user.get("poll") or {}
                 project_data = {
-                    "idea": user["poll"].get("q1", ""),
-                    "description": user["poll"].get("q2", ""),
-                    "sector": user["poll"].get("q3", ""),
+                    "idea": poll.get("q1", ""),
+                    "description": poll.get("q2", ""),
+                    "sector": poll.get("q3", ""),
                 }
                 recommendations = recommend_investors_for_founder_project(
                     project_data,
@@ -540,20 +691,43 @@ def projects_list():
         result = db['projects'].insert_one(project)
         return jsonify({'success': True, 'project_id': str(result.inserted_id)})
 
-    if user and user.get('role', '').lower() == 'founder':
-        projects_list_data = list(db['projects'].find({"founder_email": user['email']}))
-    else:
-        backfill_project_sectors(db)
+    try:
+        if db['projects'].find_one(
+            {'$or': [
+                {'sector': {'$exists': False}},
+                {'sector': None},
+                {'sector': ''},
+                {'sector': 'general'},
+            ]},
+            {'_id': 1},
+        ):
+            backfill_project_sectors(db)
+
         search_q = request.args.get('q', '').strip()
         lang = request.args.get('lang', 'en')
         query = build_project_search_query(search_q, lang)
-        projects_list_data = list(db['projects'].find(query))
+        projects_list_data = list(db['projects'].find(query).sort('_id', -1))
 
-    for p in projects_list_data:
-        p['health_score'] = calculate_health(p['_id'])
-        p['feedback_count'] = db['feedbacks'].count_documents({"project_id": str(p['_id'])})
+        project_ids = [str(p['_id']) for p in projects_list_data]
+        feedback_counts = {}
+        if project_ids:
+            pipeline = [
+                {'$match': {'project_id': {'$in': project_ids}}},
+                {'$group': {'_id': '$project_id', 'count': {'$sum': 1}}},
+            ]
+            for row in db['feedbacks'].aggregate(pipeline):
+                feedback_counts[row['_id']] = row['count']
 
-    return jsonify({'projects': serialize_doc(projects_list_data)})
+        for p in projects_list_data:
+            pid = str(p['_id'])
+            p['feedback_count'] = feedback_counts.get(pid, 0)
+            if p.get('health_score') is None:
+                p['health_score'] = 0
+
+        return jsonify({'projects': serialize_doc(projects_list_data)})
+    except Exception as e:
+        print('Projects list failed:', traceback.format_exc())
+        return jsonify({'error': 'Could not load projects. Please try again.'}), 500
 
 
 @api.route('/projects/<project_id>', methods=['GET'])
@@ -746,16 +920,38 @@ def funding_optimizer_api():
     except ImportError:
         return jsonify({'error': 'ML features unavailable on this hosting plan.'}), 503
     data = request.get_json() or {}
+    lang = data.get('lang', 'en')
+    stage = data.get('stage', 'seed')
+    use_of_funds = data.get('use_of_funds', '')
     flow_model, scaler, scale_info = get_funding_models()
     result = analyze_funding(
         float(data['funding']), float(data['capital']), float(data['revenue']),
         float(data['expenses']), float(data['growth_rate']), int(data['duration']),
         flow_model=flow_model, scaler=scaler, scale_info=scale_info,
+        stage=stage, use_of_funds=use_of_funds, lang=lang,
     )
     get_db()['funding'].insert_one({
         "user_email": session.get('user_email', 'guest'), **data, "result": result,
     })
     return jsonify({'result': result})
+
+
+@api.route('/funding-optimizer/pdf', methods=['POST'])
+@require_founder
+def funding_optimizer_pdf_api():
+    from funding_pdf import build_funding_pdf
+
+    payload = request.get_json() or {}
+    form = payload.get('form') or {}
+    result = payload.get('result') or {}
+    labels = payload.get('labels') or {}
+    lang = payload.get('lang', 'en')
+    if not result:
+        return jsonify({'error': 'Analysis result is required.'}), 400
+
+    buffer = build_funding_pdf(form, result, labels, lang=lang)
+    filename = payload.get('filename') or 'YellowDuck_Funding_Report.pdf'
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 
 # ─── Cash Flow ──────────────────────────────────────────────────────────────
@@ -769,13 +965,16 @@ def cash_flow_api():
         return jsonify({'error': 'ML features unavailable on this hosting plan.'}), 503
     result = None
     error_message = None
+    lang = request.form.get('lang', 'en')
     try:
         if 'file' in request.files and request.files['file'].filename:
             uploaded_file = request.files['file']
             filename = secure_filename(uploaded_file.filename)
+            if not filename:
+                return jsonify({'error': 'Invalid file name. Please rename the CSV and try again.'}), 400
             saved_path = os.path.join(UPLOAD_FOLDER, filename)
             uploaded_file.save(saved_path)
-            result = analyze_cash_flow(csv_file=saved_path)
+            result = analyze_cash_flow(csv_file=saved_path, lang=lang)
         else:
             def safe_float(val):
                 try:
@@ -785,6 +984,10 @@ def cash_flow_api():
 
             avg_inflow = safe_float(request.form.get('avg_inflow', 0))
             avg_outflow = safe_float(request.form.get('avg_outflow', 0))
+            if avg_inflow == 0 and avg_outflow == 0:
+                return jsonify({
+                    'error': 'Upload a CSV file or enter average monthly inflow and outflow.',
+                }), 400
             growth_rate = safe_float(request.form.get('growth_rate', 0))
             months = int(request.form.get('months', 12) or 12)
             year = request.form.get('year', '').strip() or "2025"
@@ -797,14 +1000,30 @@ def cash_flow_api():
                 outflow = avg_outflow * ((1 + growth_rate / 200) ** (i / 12.0))
                 rows.append({'month': month, 'fiscal year': str(year), 'inflows/outflows': 'Inflows', 'amount': inflow})
                 rows.append({'month': month, 'fiscal year': str(year), 'inflows/outflows': 'Outflows', 'amount': outflow})
-            result = analyze_cash_flow(manual_data=rows)
+            result = analyze_cash_flow(manual_data=rows, lang=lang)
     except Exception as e:
         error_message = str(e)
         print(traceback.format_exc())
 
     if error_message:
         return jsonify({'error': error_message}), 400
-    return jsonify({'result': result})
+    if result is None:
+        return jsonify({'error': 'Analysis produced no result. Please re-upload your CSV file.'}), 500
+    # Drop bulky summary rows — not used by the UI; keeps JSON response smaller/faster
+    result = {k: v for k, v in result.items() if k != 'summary'}
+    result = _externalize_cashflow_charts(result)
+    return jsonify({'result': _json_safe(result), 'v': 2})
+
+
+@api.route('/cash-flow/charts/<chart_id>/<kind>', methods=['GET'])
+@require_founder
+def cash_flow_chart_api(chart_id, kind):
+    if not re.fullmatch(r'[a-f0-9]{32}', chart_id or '') or kind not in ('graph', 'forecast', 'model'):
+        return jsonify({'error': 'Chart not found'}), 404
+    path = os.path.join(CHARTS_FOLDER, f'{chart_id}_{kind}.png')
+    if not os.path.isfile(path):
+        return jsonify({'error': 'Chart not found'}), 404
+    return send_file(path, mimetype='image/png')
 
 
 @api.route('/download-pdf', methods=['POST'])
@@ -823,47 +1042,139 @@ def download_pdf_api():
     yellow = (0.98, 0.79, 0.08)
     light_yellow = (1, 0.98, 0.92)
     green = (0.13, 0.7, 0.37)
-    blue = (0.15, 0.39, 0.92)
-    red = (0.86, 0.15, 0.15)
     gray = (0.2, 0.2, 0.2)
+    lang = data.get('lang', 'en')
+    is_ar = lang == 'ar'
+
+    labels = {
+        'title': 'Yellow Duck — تقرير التدفق النقدي' if is_ar else 'Yellow Duck — Cash Flow Report',
+        'insights': 'رؤى التدفق النقدي' if is_ar else 'Cash Flow Insights',
+        'year': 'السنة' if is_ar else 'Year',
+        'trend': 'الاتجاه' if is_ar else 'Trend',
+        'avg_in': 'متوسط التدفق الداخل' if is_ar else 'Avg Inflow',
+        'avg_out': 'متوسط التدفق الخارج' if is_ar else 'Avg Outflow',
+        'avg_net': 'صافي المتوسط' if is_ar else 'Avg Net',
+        'margin': 'الهامش النقدي' if is_ar else 'Cash Margin',
+        'forecast': 'توقع الرصيد النقدي' if is_ar else 'Cash Balance Forecast',
+        'last_bal': 'الرصيد التراكمي' if is_ar else 'Cumulative Balance',
+        'next_bal': 'التوقع للفترة القادمة' if is_ar else 'Projected Next Period',
+        'change': 'التغير المتوقع' if is_ar else 'Expected Change',
+        'risk': 'مستوى المخاطرة' if is_ar else 'Risk Level',
+        'net_chart': 'مخطط صافي التدفق النقدي' if is_ar else 'Net Cash Flow Chart',
+        'balance_chart': 'الرصيد التراكمي والتوقع' if is_ar else 'Cumulative Balance & Projection',
+    }
 
     def add_background():
         c.setFillColorRGB(*light_yellow)
         c.rect(0, 0, width, height, fill=1, stroke=0)
         c.setFillColorRGB(0, 0, 0)
 
-    add_background()
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColorRGB(*yellow)
-    c.drawString(margin, y, " Yellow Duck — Financial Report")
-    y -= 40
+    def ensure_space(needed):
+        nonlocal y
+        if y - needed < margin:
+            c.showPage()
+            add_background()
+            y = height - margin
 
-    for insight in data.get("insights", []):
-        c.setFont("Helvetica-Bold", 11)
+    def draw_image(img_bytes, title=None, max_h=220):
+        nonlocal y
+        if not img_bytes:
+            return
+        img = ImageReader(BytesIO(img_bytes))
+        iw, ih = img.getSize()
+        max_w = width - 2 * margin
+        scale = min(max_w / iw, max_h / ih)
+        w, h = iw * scale, ih * scale
+        title_h = 22 if title else 0
+        ensure_space(title_h + h + 16)
+        if title:
+            c.setFont('Helvetica-Bold', 12)
+            c.setFillColorRGB(*gray)
+            c.drawString(margin, y, title)
+            y -= title_h
+        c.drawImage(img, margin, y - h, width=w, height=h)
+        y -= h + 16
+
+    add_background()
+    c.setFont('Helvetica-Bold', 18)
+    c.setFillColorRGB(*yellow)
+    c.drawString(margin, y, labels['title'])
+    y -= 36
+
+    c.setFont('Helvetica-Bold', 13)
+    c.setFillColorRGB(*green)
+    c.drawString(margin, y, labels['insights'])
+    y -= 20
+
+    for insight in data.get('insights', []):
+        ensure_space(90)
+        c.setFont('Helvetica-Bold', 11)
         c.setFillColorRGB(*green)
-        c.drawString(margin, y, f"Year: {insight.get('year','')} — {insight.get('trend','').upper()}")
+        trend = str(insight.get('trend', '')).upper()
+        c.drawString(margin, y, f"{labels['year']}: {insight.get('year', '')} — {labels['trend']}: {trend}")
         y -= 14
-        c.setFont("Helvetica", 10)
+        c.setFont('Helvetica', 10)
         c.setFillColorRGB(*gray)
-        c.drawString(margin + 10, y, f"Net: ${insight.get('avg_net', 0):.2f}")
-        y -= 20
+        lines = [
+            f"{labels['avg_in']}: ${float(insight.get('avg_inflow', 0)):,.2f}",
+            f"{labels['avg_out']}: ${float(insight.get('avg_outflow', 0)):,.2f}",
+            f"{labels['avg_net']}: ${float(insight.get('avg_net', 0)):,.2f}",
+        ]
+        if insight.get('cash_margin_pct') is not None:
+            lines.append(f"{labels['margin']}: {float(insight['cash_margin_pct']):.1f}%")
+        for line in lines:
+            c.drawString(margin + 10, y, line)
+            y -= 13
+        advice = insight.get('advice', '')
+        if advice:
+            c.setFont('Helvetica-Oblique', 9)
+            c.drawString(margin + 10, y, advice[:110])
+            y -= 14
+        y -= 8
+
+    chart_id = _resolve_cashflow_chart_id(data)
+    net_chart = _load_chart_by_id(chart_id, 'graph') if chart_id else None
+    forecast_chart = _load_chart_by_id(chart_id, 'forecast') if chart_id else None
+    if not net_chart:
+        net_chart = _load_chart_bytes(data.get('chart'))
+    if not forecast_chart:
+        forecast_chart = _load_chart_bytes(data.get('forecast_chart'))
+    draw_image(net_chart, labels['net_chart'])
 
     funding = data.get('prediction_advice') or data.get('funding')
     if funding:
+        ensure_space(80)
         c.setFont('Helvetica-Bold', 13)
-        c.drawString(margin, y, ' Ending Balance Forecast')
+        c.setFillColorRGB(*green)
+        c.drawString(margin, y, labels['forecast'])
         y -= 18
-        c.setFont('Helvetica', 11)
+        c.setFont('Helvetica', 10)
+        c.setFillColorRGB(*gray)
+        if funding.get('last_ending_balance') is not None:
+            c.drawString(margin + 10, y, f"{labels['last_bal']}: ${float(funding['last_ending_balance']):,.2f}")
+            y -= 13
         if funding.get('next_ending_balance') is not None:
-            c.drawString(margin + 10, y, f"Next balance: ${funding.get('next_ending_balance', 0):.2f}")
-            y -= 14
-        c.drawString(margin + 10, y, f"Risk: {funding.get('risk_level', 'N/A')}")
-        y -= 30
+            c.drawString(margin + 10, y, f"{labels['next_bal']}: ${float(funding['next_ending_balance']):,.2f}")
+            y -= 13
+        if funding.get('change') is not None:
+            c.drawString(margin + 10, y, f"{labels['change']}: ${float(funding['change']):,.2f}")
+            y -= 13
+        c.drawString(margin + 10, y, f"{labels['risk']}: {funding.get('risk_level', 'N/A')}")
+        y -= 13
+        advice = funding.get('advice', '')
+        if advice:
+            c.setFont('Helvetica-Oblique', 9)
+            c.drawString(margin + 10, y, advice[:110])
+            y -= 16
+
+    if not forecast_chart:
+        forecast_chart = _load_chart_bytes(data.get('forecast_chart'))
+    draw_image(forecast_chart, labels['balance_chart'])
 
     c.showPage()
     c.save()
     buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name="YellowDuck_Financial_Report.pdf", mimetype="application/pdf")
+    return send_file(buffer, as_attachment=True, download_name='YellowDuck_Financial_Report.pdf', mimetype='application/pdf')
 
 
 # ─── Portfolio ────────────────────────────────────────────────────────────────

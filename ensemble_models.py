@@ -57,7 +57,7 @@ def load_and_prepare_data(csv_path="dataset/Financial_Plan_Statements_-_Cash_Flo
 # Train Ensemble + Meta-DES
 # ==========================================
 def train_ensemble_model(n_splits=5):
-    print("🔄 Loading & preprocessing dataset...")
+    print("Loading & preprocessing dataset...")
     X, y, le = load_and_prepare_data()
     
     scaler = StandardScaler()
@@ -69,7 +69,7 @@ def train_ensemble_model(n_splits=5):
     accuracies, f1_scores = [], []
     
     for fold, (train_idx, test_idx) in enumerate(skf.split(X_scaled, y), 1):
-        print(f"\n🔹 Fold {fold}/{n_splits}")
+        print(f"\nFold {fold}/{n_splits}")
         X_train, X_test = X_scaled[train_idx], X_scaled[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
         
@@ -94,7 +94,7 @@ def train_ensemble_model(n_splits=5):
         print("Accuracy:", acc, "F1:", f1)
         print(classification_report(y_test, y_pred))
     
-    print("\n📊 CV Mean Accuracy:", np.mean(accuracies), "Mean F1:", np.mean(f1_scores))
+    print("\nCV Mean Accuracy:", np.mean(accuracies), "Mean F1:", np.mean(f1_scores))
     
     # Train final model on all data
     final_base_models = [
@@ -112,7 +112,7 @@ def train_ensemble_model(n_splits=5):
     joblib.dump(final_meta_des, MODEL_SAVE_PATH)
     joblib.dump(scaler, SCALER_SAVE_PATH)
     joblib.dump(le, LABEL_ENCODER_PATH)
-    print("\n💾 Final Model, Scaler & LabelEncoder saved successfully!")
+    print("\nFinal Model, Scaler & LabelEncoder saved successfully!")
     
     return final_meta_des, scaler, le
 
@@ -143,6 +143,6 @@ def predict_risk(inflow, outflow, net_flow, profitability, stability):
 
 # ==========================================
 if __name__ == "__main__":
-    print("🚀 Training Ensemble Meta-DES Model...")
+    print("Training Ensemble Meta-DES Model...")
     train_ensemble_model()
-    print("✅ Training Completed Successfully!")
+    print("Training Completed Successfully!")

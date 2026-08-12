@@ -91,14 +91,5 @@
       "commerce",
       "technology"
     ]
-  },
-  {
-    "_id": "69693748234ace960e04a449",
-    "title": "المزرعه السعيده",
-    "description": "حمايه المحاصيل وزياده المحصول",
-    "sector": "agriculture",
-    "tags": [
-      "agriculture"
-    ]
   }
 ]

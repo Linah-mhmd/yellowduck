@@ -75,6 +75,23 @@ export function PerformanceIcon({ size = 24 }) {
   );
 }
 
+export function EyeIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+    </svg>
+  );
+}
+
+export function EyeOffIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 4.2A10.7 10.7 0 0112 5c6.5 0 10 7 10 7a18.2 18.2 0 01-4.8 5.4M6.1 6.1C3.5 7.8 2 12 2 12a18.2 18.2 0 005.4 6.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 export const FEATURE_ICONS = {
   target: TargetIcon,
   chart: ChartIcon,

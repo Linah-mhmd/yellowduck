@@ -43,5 +43,6 @@ class Config:
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
     SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'true').lower() in ('1', 'true', 'yes')
     MAIL_FROM = os.getenv('MAIL_FROM', 'noreply@yellowduck.com')
+    MAIL_FROM_NAME = os.getenv('MAIL_FROM_NAME', 'Yellow Duck')
 
     REQUIRE_EMAIL_VERIFICATION = os.getenv('REQUIRE_EMAIL_VERIFICATION', 'false').lower() in ('1', 'true', 'yes')

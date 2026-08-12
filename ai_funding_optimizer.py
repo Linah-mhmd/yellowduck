@@ -92,7 +92,7 @@ def train_flow_model(cv_folds=5, target_startup_median=TARGET_STARTUP_MEDIAN):
     ]
     
     kf = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
-    print("🔄 Training base regressors with CV (log1p target)...")
+    print("Training base regressors with CV (log1p target)...")
     
     for name, model in base_models:
         scores = []
@@ -101,11 +101,11 @@ def train_flow_model(cv_folds=5, target_startup_median=TARGET_STARTUP_MEDIAN):
             y_train, y_val = y_log.iloc[train_idx], y_log.iloc[val_idx]
             model.fit(X_train, y_train)
             scores.append(model.score(X_val, y_val))
-        print(f"✅ {name} CV R2 (log target): {np.mean(scores):.3f}")
+        print(f"[OK] {name} CV R2 (log target): {np.mean(scores):.3f}")
     
     ensemble_model = VotingRegressor(estimators=base_models)
     ensemble_model.fit(X_scaled, y_log)
-    print("💾 Ensemble trained on log1p(target).")
+    print("Ensemble trained on log1p(target).")
     
     # Domain scaling
     train_median = float(np.median(y))
@@ -116,78 +116,397 @@ def train_flow_model(cv_folds=5, target_startup_median=TARGET_STARTUP_MEDIAN):
     joblib.dump(ensemble_model, MODEL_FLOW_PATH)
     joblib.dump(scaler, SCALER_FLOW_PATH)
     joblib.dump(scale_info, SCALE_INFO_PATH)
-    print(f"💾 Saved ensemble, scaler, scale info. Train median: {train_median:,.2f}, scale_factor: {scale_factor:.6f}")
+    print(f"Saved ensemble, scaler, scale info. Train median: {train_median:,.2f}, scale_factor: {scale_factor:.6f}")
     
     return ensemble_model, scaler, scale_info
 
 # ==========================================
-# Funding Analysis (uses predict_risk)
+# Funding Analysis (uses predict_risk + business metrics)
 # ==========================================
-def analyze_funding(funding, capital, revenue, expenses, growth_rate, duration, flow_model, scaler, scale_info):
-    growth = float(growth_rate) / 100.0
-    inflow = revenue * (1 + growth)
-    outflow = expenses
-    net_flow = inflow - outflow
-    profitability = net_flow / (inflow + 1e-6)
+
+def _compute_business_metrics(funding, capital, revenue, expenses, growth_rate, duration):
+    """Derive founder-friendly metrics directly from inputs."""
+    annual_growth = float(growth_rate) / 100.0
+    duration = max(1, int(duration))
+    funding = float(funding)
+    capital = float(capital)
+    revenue = float(revenue)
+    expenses = float(expenses)
+
+    monthly_growth = (1 + annual_growth) ** (1 / 12) - 1 if annual_growth > 0 else 0.0
+    projected_monthly_revenue = revenue * (1 + monthly_growth)
+    monthly_net = projected_monthly_revenue - expenses
+    monthly_burn = max(0.0, -monthly_net)
+    profitability = monthly_net / (projected_monthly_revenue + 1e-6)
+
+    if monthly_burn > 0:
+        runway_months = capital / monthly_burn
+    else:
+        runway_months = None
+
+    total_revenue = sum(revenue * ((1 + monthly_growth) ** m) for m in range(duration))
+    total_expenses = expenses * duration
+    net_over_duration = total_revenue - total_expenses
+    cumulative_shortfall = max(0.0, -net_over_duration)
+    external_need = max(0.0, cumulative_shortfall - capital)
+
+    if external_need > 0:
+        funding_coverage_pct = round((funding / external_need) * 100, 1)
+        funding_surplus = round(max(0.0, funding - external_need), 2)
+        funding_gap = round(max(0.0, external_need - funding), 2)
+    else:
+        funding_coverage_pct = None
+        funding_surplus = round(max(0.0, funding), 2) if funding > 0 else 0.0
+        funding_gap = 0.0
+
+    break_even_revenue = expenses / (1 + monthly_growth) if (1 + monthly_growth) > 0 else expenses
+    revenue_gap_to_break_even = max(0.0, break_even_revenue - revenue)
+
+    if monthly_burn == 0 and monthly_net >= 0:
+        health = 'growth'
+    elif runway_months is not None and runway_months < 3:
+        health = 'critical'
+    elif runway_months is not None and (runway_months < duration or monthly_net < 0):
+        health = 'caution'
+    else:
+        health = 'stable'
+
+    return {
+        'projected_monthly_revenue': round(projected_monthly_revenue, 2),
+        'monthly_net': round(monthly_net, 2),
+        'monthly_burn': round(monthly_burn, 2),
+        'profitability': round(profitability, 4),
+        'runway_months': round(runway_months, 1) if runway_months is not None else None,
+        'break_even_revenue': round(break_even_revenue, 2),
+        'revenue_gap_to_break_even': round(revenue_gap_to_break_even, 2),
+        'cumulative_shortfall': round(cumulative_shortfall, 2),
+        'external_need': round(external_need, 2),
+        'funding_coverage_pct': funding_coverage_pct,
+        'funding_surplus': funding_surplus,
+        'funding_gap': funding_gap,
+        'net_over_duration': round(net_over_duration, 2),
+        'health': health,
+        'duration': duration,
+        'annual_growth_pct': round(annual_growth * 100, 2),
+    }
+
+
+def _runway_alert(metrics, lang='en'):
+    runway = metrics['runway_months']
+    duration = metrics['duration']
+    if runway is None or metrics['monthly_burn'] <= 0 or runway >= duration:
+        return None
+    month = max(1, int(np.ceil(runway)))
+    if lang == 'ar':
+        return {
+            'funding_needed_by_month': month,
+            'message': (
+                f'تحتاجين تمويلاً قبل الشهر {month} '
+                f'(المدى {runway:.1f} شهر مقابل {duration} شهر للمشروع).'
+            ),
+        }
+    return {
+        'funding_needed_by_month': month,
+        'message': (
+            f'You need funding before month {month} '
+            f'(runway {runway:.1f} months vs {duration}-month project).'
+        ),
+    }
+
+
+def _compute_scenarios(funding, capital, revenue, expenses, growth_rate, duration):
+    base = _compute_business_metrics(funding, capital, revenue, expenses, growth_rate, duration)
+    configs = [
+        ('reduce_expenses_10', expenses * 0.9, revenue),
+        ('increase_revenue_20', expenses, revenue * 1.2),
+    ]
+    scenarios = []
+    for scenario_id, scen_expenses, scen_revenue in configs:
+        m = _compute_business_metrics(funding, capital, scen_revenue, scen_expenses, growth_rate, duration)
+        scenarios.append({
+            'id': scenario_id,
+            'monthly_burn': m['monthly_burn'],
+            'runway_months': m['runway_months'],
+            'external_need': m['external_need'],
+            'health': m['health'],
+            'burn_change': round(m['monthly_burn'] - base['monthly_burn'], 2),
+            'external_need_change': round(m['external_need'] - base['external_need'], 2),
+        })
+    return scenarios
+
+
+STAGE_MIX_ADJUST = {
+    'idea': {'equity': -8, 'debt': -7, 'grants': 15},
+    'seed': {'equity': 0, 'debt': 0, 'grants': 0},
+    'growth': {'equity': 12, 'debt': 8, 'grants': -20},
+}
+
+
+def _adjust_risk_level(ml_risk, metrics):
+    """Blend ML risk with business signals."""
+    risk_rank = {'low': 0, 'medium': 1, 'high': 2}
+    rank = risk_rank.get(str(ml_risk).lower(), 1)
+
+    if metrics['monthly_burn'] > 0 and metrics['runway_months'] is not None:
+        if metrics['runway_months'] < 3:
+            rank = max(rank, 2)
+        elif metrics['runway_months'] < metrics['duration']:
+            rank = max(rank, 1)
+
+    if metrics['profitability'] < -0.25:
+        rank = max(rank, 2)
+    elif metrics['profitability'] > 0.25 and metrics['monthly_burn'] == 0:
+        rank = min(rank, 0)
+
+    if metrics['funding_coverage_pct'] is not None and metrics['funding_coverage_pct'] < 60:
+        rank = max(rank, 1)
+
+    return ('low', 'medium', 'high')[rank]
+
+
+def _recommend_funding_mix(risk, metrics, funding, stage='seed'):
+    equity, debt, grants = {'low': (22, 48, 30), 'medium': (12, 38, 50), 'high': (6, 28, 66)}[risk]
+    stage = str(stage or 'seed').lower()
+    if stage not in STAGE_MIX_ADJUST:
+        stage = 'seed'
+    adj = STAGE_MIX_ADJUST[stage]
+    equity += adj['equity']
+    debt += adj['debt']
+    grants += adj['grants']
+
+    if metrics['profitability'] < 0:
+        grants += 12
+        equity -= 8
+    elif metrics['profitability'] > 0.2:
+        debt += 8
+        grants -= 5
+
+    if metrics['monthly_burn'] > 0:
+        if metrics['runway_months'] is not None and metrics['runway_months'] < metrics['duration']:
+            grants += 8
+            equity -= 5
+        if metrics['runway_months'] is not None and metrics['runway_months'] < 6:
+            grants += 5
+            debt -= 5
+
+    if funding < 100_000:
+        grants += 8
+        equity -= 4
+    elif funding > 1_000_000:
+        equity += 10
+        grants -= 8
+
+    if metrics['external_need'] > 0 and metrics['funding_coverage_pct'] is not None and metrics['funding_coverage_pct'] < 75:
+        grants += 5
+        debt -= 3
+
+    if risk == 'high' and metrics['profitability'] < 0:
+        debt -= 12
+        grants += 12
+
+    equity = max(equity, 2)
+    debt = max(debt, 0)
+    grants = max(grants, 10)
+    if risk == 'high' and metrics['profitability'] < 0:
+        debt = min(debt, 10)
+    total = equity + debt + grants
+    return [round(x * 100 / total, 1) for x in (equity, debt, grants)]
+
+
+def _explain_risk(ml_risk, predicted_risk, metrics, stability, lang='en'):
+    factors = []
+    runway = metrics['runway_months']
+    duration = metrics['duration']
+
+    if lang == 'ar':
+        if metrics['monthly_burn'] > 0:
+            factors.append('المصروفات الشهرية أعلى من الإيرادات المتوقعة (بعد النمو السنوي).')
+        if runway is not None and runway < duration:
+            factors.append(f'المدى الزمني ({runway:.1f} شهر) أقصر من مدة المشروع ({duration} شهر).')
+        if metrics['profitability'] < 0:
+            factors.append('الربحية الشهرية سالبة — الشركة تحرق cash.')
+        if stability >= 0.75 and predicted_risk == 'high':
+            factors.append('الاستقرار مرتفع: المخاطرة بسبب المدى الزمني وليس انهياراً مالياً.')
+    else:
+        if metrics['monthly_burn'] > 0:
+            factors.append('Monthly expenses exceed projected revenue (after annual growth).')
+        if runway is not None and runway < duration:
+            factors.append(f'Runway ({runway:.1f} mo) is shorter than project duration ({duration} mo).')
+        if metrics['profitability'] < 0:
+            factors.append('Monthly profitability is negative — the company is burning cash.')
+        if stability >= 0.75 and predicted_risk == 'high':
+            factors.append('Stability is high: risk is driven by runway, not a financial collapse.')
+    return factors
+
+
+def _scenario_tip(scenarios, lang='en'):
+    if not scenarios:
+        return None
+    best = min(scenarios, key=lambda s: s.get('external_need', 0))
+    if best['id'] == 'increase_revenue_20':
+        if lang == 'ar':
+            return 'أفضل خيار: زيادة الإيراد 20% — يلغي أو يقلّل الاحتياج الخارجي.'
+        return 'Best scenario (+20% revenue): eliminates or greatly reduces external need.'
+    if best['id'] == 'reduce_expenses_10':
+        if lang == 'ar':
+            return 'أفضل خيار: خفض المصروفات 10% — يقلّل الحرق والاحتياج الخارجي.'
+        return 'Best scenario (-10% expenses): lowers burn and external need.'
+    return None
+
+
+def _build_advice_points(metrics, funding, equity, debt, grants, predicted_risk, stage='seed', use_of_funds='', scenarios=None, lang='en'):
+    """Bullet-point insights tailored to the business."""
+    points = []
+    runway = metrics['runway_months']
+    duration = metrics['duration']
+    burn = metrics['monthly_burn']
+    stage = str(stage or 'seed').lower()
+    funds_text = (use_of_funds or '').strip()
+
+    if lang == 'ar':
+        stage_labels = {'idea': 'فكرة', 'seed': 'بذرة', 'growth': 'نمو'}
+        points.append(f'مرحلة الشركة: {stage_labels.get(stage, stage)}.')
+        if funds_text:
+            points.append(f'استخدام التمويل: {funds_text}')
+        else:
+            points.append('أضيفي "استخدام التمويل" في النموذج لربط المبلغ بخطة أوضح.')
+        health_msgs = {
+            'critical': 'وضع حرج: رأس المال يغطي أقل من 3 أشهر.',
+            'caution': 'تحذير: مصروفات > إيرادات أو المدى الزمني أقصر من مدة المشروع.',
+            'stable': 'وضع مستقر نسبياً على مدة المشروع.',
+            'growth': 'تدفق نقدي إيجابي — التوسع ممكن من الإيرادات.',
+        }
+        points.append(health_msgs.get(metrics['health'], ''))
+        if burn > 0 and runway is not None:
+            points.append(f'المدى الزمني: {runway:.1f} من {duration} شهر.')
+        if metrics['revenue_gap_to_break_even'] > 0:
+            points.append(
+                f'للتعادل: ≈ {metrics["break_even_revenue"]:,.0f} إيراد شهري '
+                f'(فجوة {metrics["revenue_gap_to_break_even"]:,.0f}).'
+            )
+        if metrics['external_need'] > 0:
+            if metrics['funding_gap'] > 0:
+                points.append(
+                    f'طلب التمويل أقل من الاحتياج بـ {metrics["funding_gap"]:,.0f}.'
+                )
+            else:
+                points.append(
+                    f'الطلب يغطي {metrics["funding_coverage_pct"]:.0f}% من الاحتياج ({metrics["external_need"]:,.0f}).'
+                )
+                if metrics['funding_surplus'] > 0:
+                    points.append(f'فائض تقديري: {metrics["funding_surplus"]:,.0f}.')
+        points.append(f'مزيج مقترح: منح {grants}% · ديون {debt}% · أسهم {equity}%.')
+        if predicted_risk == 'high' and debt > 5:
+            points.append('الديون التقليدية صعبة — ركّزي على منح وقروض مبرمجة/منخفضة الفائدة.')
+    else:
+        stage_labels = {'idea': 'Idea', 'seed': 'Seed', 'growth': 'Growth'}
+        points.append(f'Company stage: {stage_labels.get(stage, stage)}.')
+        if funds_text:
+            points.append(f'Use of funds: {funds_text}')
+        else:
+            points.append('Add "Use of funds" in the form to tie the amount to a clearer plan.')
+        health_msgs = {
+            'critical': 'Critical: capital covers less than 3 months.',
+            'caution': 'Caution: expenses > revenue or runway shorter than project duration.',
+            'stable': 'Relatively stable for the project timeline.',
+            'growth': 'Positive cash flow — growth can be funded from revenue.',
+        }
+        points.append(health_msgs.get(metrics['health'], ''))
+        if burn > 0 and runway is not None:
+            points.append(f'Runway: {runway:.1f} of {duration} months.')
+        if metrics['revenue_gap_to_break_even'] > 0:
+            points.append(
+                f'Break-even: ≈ {metrics["break_even_revenue"]:,.0f}/month '
+                f'(gap {metrics["revenue_gap_to_break_even"]:,.0f}).'
+            )
+        if metrics['external_need'] > 0:
+            if metrics['funding_gap'] > 0:
+                points.append(f'Funding request is below need by {metrics["funding_gap"]:,.0f}.')
+            else:
+                points.append(
+                    f'Request covers {metrics["funding_coverage_pct"]:.0f}% of need ({metrics["external_need"]:,.0f}).'
+                )
+                if metrics['funding_surplus'] > 0:
+                    points.append(f'Estimated surplus: {metrics["funding_surplus"]:,.0f}.')
+        points.append(f'Suggested mix: grants {grants}% · debt {debt}% · equity {equity}%.')
+        if predicted_risk == 'high' and debt > 5:
+            points.append('Traditional bank debt may be difficult — prioritize grants and subsidized loans.')
+
+    tip = _scenario_tip(scenarios, lang)
+    if tip:
+        points.append(tip)
+
+    return [p for p in points if p]
+
+
+def analyze_funding(
+    funding, capital, revenue, expenses, growth_rate, duration,
+    flow_model, scaler, scale_info,
+    stage='seed', use_of_funds='', lang='en',
+):
+    stage = str(stage or 'seed').lower()
+    if stage not in STAGE_MIX_ADJUST:
+        stage = 'seed'
+
+    metrics = _compute_business_metrics(funding, capital, revenue, expenses, growth_rate, duration)
+    runway_alert = _runway_alert(metrics, lang)
+    scenarios = _compute_scenarios(funding, capital, revenue, expenses, growth_rate, duration)
+
+    inflow = metrics['projected_monthly_revenue']
+    outflow = float(expenses)
+    net_flow = metrics['monthly_net']
+    profitability = metrics['profitability']
     stability = 1 - abs(inflow - outflow) / (inflow + outflow + 1e-6)
     stability = float(max(0.0, min(1.0, stability)))
-    
-    predicted_risk = predict_risk(inflow, outflow, net_flow, profitability, stability)
-    
+
+    ml_risk = predict_risk(inflow, outflow, net_flow, profitability, stability)
+    predicted_risk = _adjust_risk_level(ml_risk, metrics)
+
+    equity, debt, grants = _recommend_funding_mix(predicted_risk, metrics, float(funding), stage)
+    risk_factors = _explain_risk(ml_risk, predicted_risk, metrics, stability, lang)
+    advice_points = _build_advice_points(
+        metrics, float(funding), equity, debt, grants, predicted_risk,
+        stage, use_of_funds, scenarios, lang,
+    )
+    advice = ' '.join(advice_points)
+
+    # ML benchmark kept for internal reference only — not shown as primary revenue forecast
     X_user = scaler.transform([[outflow, net_flow, profitability, stability]])
     y_log_pred = flow_model.predict(X_user)[0]
     y_pred_raw = float(np.expm1(y_log_pred))
-    scaled_pred = y_pred_raw * float(scale_info.get("scale_factor", 1.0))
-    scaled_pred = float(max(PREDICTION_CLIP_MIN, min(PREDICTION_CLIP_MAX, scaled_pred)))
-    
-    predicted_inflow = scaled_pred
-    
-    # Funding mix logic
-    if predicted_risk == "low":
-        equity, debt, grants = 20, 50, 30
-    elif predicted_risk == "medium":
-        equity, debt, grants = 15, 45, 40
-    else:
-        equity, debt, grants = 10, 35, 55
-    
-    # Adjust by funding/capital/profitability
-    if funding < 100_000: equity, debt, grants = 5, 35, 60
-    elif funding < 1_000_000: equity, debt, grants = 12, 43, 45
-    else: equity, debt, grants = 25, 50, 25
-    if capital < 250_000: grants += 10; equity -= 5
-    elif capital < 500_000: grants += 5; equity -= 3
-    if profitability > 0.5: debt -= 5; equity += 3
-    elif profitability < 0.3: grants += 5; equity -= 2
-    equity = max(equity, 3)
-    
-    total = equity + debt + grants
-    equity, debt, grants = [round(x * 100 / total, 1) for x in (equity, debt, grants)]
-    
-    advice_dict = {
-        "low": ("Low risk — use small equity with balanced debt financing.", 
-                "AI suggests minimizing equity and leveraging stable debt sources."),
-        "medium": ("Medium risk — grants and microfinance are key options.",
-                   "AI recommends avoiding investor equity and focusing on government or NGO grants."),
-        "high": ("High risk — prioritize grants and low-interest microloans.",
-                 "AI suggests delaying equity rounds and protecting ownership.")
-    }
-    advice, ai_comment = advice_dict.get(predicted_risk, ("Unknown risk", ""))
-    
-    funding_mix = {"Equity": equity, "Debt": debt, "Grants": grants}
-    
+    ml_benchmark = float(max(PREDICTION_CLIP_MIN, min(PREDICTION_CLIP_MAX, y_pred_raw * float(scale_info.get('scale_factor', 1.0)))))
+
     return {
-        "predicted_risk": predicted_risk,
-        "profitability": profitability,
-        "stability": stability,
-        "equity": equity,
-        "debt": debt,
-        "grants": grants,
-        "funding_mix": funding_mix,
-        "advice": advice,
-        "ai_comment": ai_comment,
-        "predicted_inflow": predicted_inflow,
-        "raw_public_inflow_estimate": y_pred_raw,
-        "scale_info": scale_info
+        'predicted_risk': predicted_risk,
+        'ml_risk': ml_risk,
+        'profitability': profitability,
+        'stability': stability,
+        'equity': equity,
+        'debt': debt,
+        'grants': grants,
+        'funding_mix': {'Equity': equity, 'Debt': debt, 'Grants': grants},
+        'advice': advice,
+        'advice_points': advice_points,
+        'risk_factors': risk_factors,
+        'health': metrics['health'],
+        'projected_monthly_revenue': metrics['projected_monthly_revenue'],
+        'monthly_burn': metrics['monthly_burn'],
+        'monthly_net': metrics['monthly_net'],
+        'runway_months': metrics['runway_months'],
+        'break_even_revenue': metrics['break_even_revenue'],
+        'revenue_gap_to_break_even': metrics['revenue_gap_to_break_even'],
+        'external_need': metrics['external_need'],
+        'funding_coverage_pct': metrics['funding_coverage_pct'],
+        'funding_surplus': metrics['funding_surplus'],
+        'funding_gap': metrics['funding_gap'],
+        'net_over_duration': metrics['net_over_duration'],
+        'stage': stage,
+        'use_of_funds': use_of_funds.strip() if use_of_funds else '',
+        'runway_alert': runway_alert,
+        'scenarios': scenarios,
+        'ml_inflow_benchmark': ml_benchmark,
+        # backward compatibility
+        'predicted_inflow': metrics['projected_monthly_revenue'],
     }
 
 # ==========================================
@@ -198,7 +517,7 @@ def train_models():
         flow_model = joblib.load(MODEL_FLOW_PATH)
         scaler = joblib.load(SCALER_FLOW_PATH)
         scale_info = joblib.load(SCALE_INFO_PATH)
-        print("✅ Loaded existing flow model, scaler, and scale info.")
+        print("Loaded existing flow model, scaler, and scale info.")
         return flow_model, scaler, scale_info
     return train_flow_model(cv_folds=5, target_startup_median=TARGET_STARTUP_MEDIAN)
 
@@ -206,9 +525,9 @@ def train_models():
 # Example Usage
 # ==========================================
 if __name__ == "__main__":
-    print("🚀 Training / Loading Flow Model...")
+    print("Training / Loading Flow Model...")
     flow_model, scaler, scale_info = train_models()
-    print("✅ Flow model ready.\nScale info:", scale_info)
+    print("Flow model ready.\nScale info:", scale_info)
     
     demo = analyze_funding(
         funding=500_000,
@@ -222,6 +541,6 @@ if __name__ == "__main__":
         scale_info=scale_info
     )
     
-    print("\n💡 Funding Analysis Results:")
+    print("\nFunding Analysis Results:")
     for k, v in demo.items():
         print(f"{k}: {v}")

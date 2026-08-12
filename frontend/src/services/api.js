@@ -14,6 +14,18 @@ api.interceptors.response.use(
   }
 );
 
+/** POST multipart/form-data — omit Content-Type so axios adds the boundary. */
+function postFormData(url, formData, options = {}) {
+  return api.post(url, formData, {
+    timeout: 120000,
+    ...options,
+    transformRequest: [(data, headers) => {
+      delete headers['Content-Type'];
+      return data;
+    }],
+  });
+}
+
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   signup: (data) => api.post('/auth/signup', data),
@@ -44,11 +56,10 @@ export const projectsAPI = {
       ...(q ? { q } : {}),
       ...(lang ? { lang } : {}),
     },
+    timeout: 60000,
   }),
   get: (id) => api.get(`/projects/${id}`),
-  create: (formData) => api.post('/projects', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  create: (formData) => postFormData('/projects', formData),
   editInline: (id, data) => api.post(`/projects/${id}/edit`, data),
   delete: (id) => api.delete(`/projects/${id}`),
   invest: (id, data) => api.post(`/projects/${id}/invest`, data),
@@ -64,12 +75,54 @@ export const controlAPI = {
 
 export const fundingAPI = {
   analyze: (data) => api.post('/funding-optimizer', data),
+  downloadPDF: (data) => api.post('/funding-optimizer/pdf', data, { responseType: 'blob' }),
 };
 
 export const cashFlowAPI = {
-  analyze: (formData) => api.post('/cash-flow', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  analyze: async (formData) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 300000);
+    let res;
+    try {
+      res = await fetch('/api/cash-flow', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Analysis timed out. Please try again or use manual entry.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const text = await res.text();
+    if (!text) {
+      throw new Error(
+        res.ok
+          ? 'Empty server response. Please try again.'
+          : `Server error (${res.status}). The analysis may have timed out — wait and retry.`,
+      );
+    }
+
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      const snippet = text.replace(/\s+/g, ' ').slice(0, 120);
+      throw new Error(
+        `Server returned a non-JSON response (${res.status}). ${snippet.startsWith('<') ? 'Connection may have timed out — please retry.' : snippet}`,
+      );
+    }
+
+    if (!res.ok) {
+      throw new Error(data.error || `Request failed (${res.status})`);
+    }
+    return { data };
+  },
   downloadPDF: (data) => api.post('/download-pdf', data, { responseType: 'blob' }),
 };
 
@@ -78,7 +131,7 @@ export const portfolioAPI = {
   getForm: (id) => api.get(id ? `/portfolio/form/${id}` : '/portfolio/form'),
   save: (formData, id) => {
     const url = id ? `/portfolio/form/${id}` : '/portfolio/form';
-    return api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return postFormData(url, formData);
   },
 };
 

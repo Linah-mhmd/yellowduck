@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
 import { DuckIcon } from '../components/Icons';
+import PasswordInput from '../components/PasswordInput';
 
 export default function Signup() {
   const [form, setForm] = useState({
@@ -35,7 +36,9 @@ export default function Signup() {
     try {
       const data = await signup({ ...form, lang });
       navigate(data.redirect || '/verify-email', {
-        state: data.dev_link ? { devLink: data.dev_link } : undefined,
+        state: data.dev_link || data.email_sent === false
+          ? { devLink: data.dev_link, emailSent: data.email_sent ?? false }
+          : undefined,
       });
     } catch (e) {
       setError(e.message);
@@ -61,8 +64,8 @@ export default function Signup() {
           <form onSubmit={handleSubmit}>
             <input placeholder={t('auth.fullName')} value={form.name} onChange={(e) => update('name', e.target.value)} required />
             <input type="email" placeholder={t('auth.email')} value={form.email} onChange={(e) => update('email', e.target.value)} required />
-            <input type="password" placeholder={t('auth.password')} value={form.password} onChange={(e) => update('password', e.target.value)} required />
-            <input type="password" placeholder={t('auth.confirmPassword')} value={form.confirm_password} onChange={(e) => update('confirm_password', e.target.value)} required />
+            <PasswordInput placeholder={t('auth.password')} value={form.password} onChange={(e) => update('password', e.target.value)} required />
+            <PasswordInput placeholder={t('auth.confirmPassword')} value={form.confirm_password} onChange={(e) => update('confirm_password', e.target.value)} required />
             <select value={form.role} onChange={(e) => update('role', e.target.value)} required>
               <option value="founder">{t('auth.roleFounder')}</option>
               <option value="investor">{t('auth.roleInvestor')}</option>

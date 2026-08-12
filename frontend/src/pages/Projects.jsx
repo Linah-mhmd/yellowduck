@@ -7,6 +7,10 @@ import PageHeader from '../components/PageHeader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { formatMoney } from '../utils/format';
 
+const FILTERS = ['all', 'open', 'in progress', 'closed'];
+
+const normalizeStatus = (status) => (status || 'open').toLowerCase().replace(/_/g, ' ');
+
 function HealthBar({ score, t }) {
   const color = score >= 70 ? 'var(--yd-success)' : score >= 40 ? 'var(--yd-warning)' : 'var(--yd-danger)';
   return (
@@ -20,12 +24,10 @@ function HealthBar({ score, t }) {
 }
 
 function StatusBadge({ status, t }) {
-  const s = status?.toLowerCase() || 'open';
+  const s = normalizeStatus(status);
   const cls = s === 'closed' ? 'status-closed' : s === 'in progress' ? 'status-progress' : 'status-open';
   return <span className={`status-badge ${cls}`}>{statusLabel(status, t)}</span>;
 }
-
-const FILTERS = ['all', 'open', 'in progress', 'closed'];
 
 export default function Projects() {
   const { t, lang } = useTranslation();
@@ -33,6 +35,7 @@ export default function Projects() {
   const query = searchParams.get('q') || '';
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [searchInput, setSearchInput] = useState(query);
 
@@ -42,10 +45,15 @@ export default function Projects() {
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     projectsAPI.list(query || undefined, lang)
       .then(({ data }) => setProjects(data.projects || []))
+      .catch((err) => {
+        setProjects([]);
+        setError(err.message || t('projects.loadFailed'));
+      })
       .finally(() => setLoading(false));
-  }, [query, lang]);
+  }, [query, lang, t]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -55,7 +63,7 @@ export default function Projects() {
 
   const filtered = filter === 'all'
     ? projects
-    : projects.filter((p) => p.status?.toLowerCase() === filter);
+    : projects.filter((p) => normalizeStatus(p.status) === filter);
 
   if (loading) return <LoadingSpinner text={t('projects.loading')} />;
 
@@ -82,6 +90,8 @@ export default function Projects() {
         <button type="submit" className="btn btn-primary search-submit-btn">{t('projects.search')}</button>
       </form>
       <p className="search-hint">{t('projects.searchHint')}</p>
+
+      {error && <div className="error-message">{error}</div>}
 
       <div className="button-row filter-row">
         {FILTERS.map((f) => (
@@ -126,7 +136,7 @@ export default function Projects() {
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {filtered.length === 0 && !error && (
         <div className="recommendation-note empty-state">
           <p>{t('projects.noResults')}</p>
         </div>

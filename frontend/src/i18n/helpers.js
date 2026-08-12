@@ -1,5 +1,5 @@
 export function statusLabel(status, t) {
-  const s = status?.toLowerCase() || 'open';
+  const s = (status || 'open').toLowerCase().replace(/_/g, ' ');
   const map = {
     open: 'status.open',
     'in progress': 'status.inProgress',

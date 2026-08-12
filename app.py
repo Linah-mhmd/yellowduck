@@ -46,6 +46,17 @@ os.makedirs('uploads', exist_ok=True)
 from api_routes import api
 app.register_blueprint(api)
 
+
+@app.errorhandler(413)
+def request_entity_too_large(_e):
+    return jsonify({'error': 'File too large. Maximum upload size is 16 MB.'}), 413
+
+
+@app.errorhandler(500)
+def internal_server_error(_e):
+    return jsonify({'error': 'Internal server error. Please try again.'}), 500
+
+
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
 
 
